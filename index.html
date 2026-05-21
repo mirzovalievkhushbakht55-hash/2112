@@ -1,0 +1,3662 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Тачикпуть · Полный прототип</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+:root {
+  --green:#10b981; --green-dark:#059669; --green-pale:#ecfdf5; --green-light:#d1fae5;
+  --blue:#2563eb; --blue-light:#dbeafe;
+  --red:#ef4444; --amber:#f59e0b;
+  --ink:#0f172a; --text:#1e293b; --muted:#64748b; --subtle:#94a3b8;
+  --border:#e5e7eb; --bg:#f9fafb; --white:#fff;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+  --shadow-md:0 4px 12px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.04);
+  --shadow-lg:0 20px 50px rgba(0,0,0,.15),0 8px 16px rgba(0,0,0,.08);
+}
+body {
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  background:#f0f2f5; display:flex; justify-content:center; align-items:center;
+  min-height:100vh; padding:10px; -webkit-font-smoothing:antialiased;
+}
+body.dark { background:#1a1a2e; color:#e0e0e0; }
+
+.app {
+  width:100%; max-width:430px; height:95vh; max-height:900px; background:#fff;
+  border-radius:36px; box-shadow:0 25px 50px -12px rgba(0,0,0,.25);
+  display:flex; flex-direction:column; overflow:hidden; position:relative;
+}
+body.dark .app { background:#16213e; }
+
+/* ════ LOADING ════ */
+#loadingOverlay {
+  position:absolute; inset:0; background:#fff; z-index:9999;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:16px; border-radius:36px; transition:opacity .4s;
+}
+#loadingOverlay.hide { opacity:0; pointer-events:none; }
+.load-logo { font-size:1.6rem; font-weight:800; color:var(--green); }
+.load-spin { width:36px; height:36px; border:3px solid var(--border); border-top-color:var(--green); border-radius:50%; animation:spin .8s linear infinite; }
+.load-text { font-size:.8rem; color:var(--muted); font-weight:600; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ════ TOAST ════ */
+.toast-wrap { position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:99999; display:flex; flex-direction:column; gap:6px; align-items:center; pointer-events:none; }
+.toast { background:var(--ink); color:#fff; padding:10px 20px; border-radius:24px; font-size:.82rem; font-weight:700; box-shadow:var(--shadow-lg); animation:tIn .25s ease, tOut .3s 2.7s ease forwards; max-width:90vw; }
+.toast.ok { background:var(--green); }
+.toast.warn { background:var(--amber); color:var(--ink); }
+.toast.err { background:var(--red); }
+@keyframes tIn { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:translateY(0)} }
+@keyframes tOut { to{opacity:0;transform:translateY(-6px)} }
+
+/* ════ SCREENS ════ */
+.screen { display:none; flex-direction:column; height:100%; width:100%; overflow:hidden; }
+.screen.active { display:flex; }
+
+/* ════ HEADER ════ */
+.header {
+  background:#fff; padding:14px 18px; display:flex; align-items:center; justify-content:space-between;
+  border-bottom:1px solid var(--border); z-index:10; flex-shrink:0;
+}
+body.dark .header { background:#0f3460; border-color:#2a3f6e; }
+.logo { display:flex; align-items:center; font-weight:800; font-size:18px; color:var(--ink); }
+body.dark .logo { color:#e0e0e0; }
+.logo i { color:var(--green); font-size:22px; margin-right:8px; }
+.header-right { display:flex; gap:8px; align-items:center; }
+.icon-btn {
+  width:34px; height:34px; border:none; background:var(--bg); border-radius:50%;
+  cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--text);
+  position:relative; transition:background .15s;
+}
+.icon-btn:hover { background:var(--border); }
+.icon-btn .badge {
+  position:absolute; top:-2px; right:-2px; background:var(--red); color:#fff;
+  border-radius:10px; padding:1px 5px; font-size:9px; font-weight:800; min-width:16px;
+}
+.sync-pill { display:flex; align-items:center; gap:5px; background:var(--green-pale); color:var(--green); padding:4px 9px; border-radius:100px; font-size:.66rem; font-weight:700; }
+.sync-pill.off { background:#fee2e2; color:var(--red); }
+.sync-dot { width:6px; height:6px; background:currentColor; border-radius:50%; animation:blink 1.4s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ════ MAP ════ */
+.map-screen { position:relative; flex:1; }
+#map { width:100%; height:100%; z-index:1; background:#e9f0f5; }
+.leaflet-container { font-family:'Inter',sans-serif; }
+
+/* SEARCH PANEL */
+.search-panel {
+  background:#fff; padding:12px 14px; border-radius:20px 20px 0 0;
+  box-shadow:0 -4px 15px rgba(0,0,0,.1); position:relative; z-index:10; flex-shrink:0;
+}
+body.dark .search-panel { background:#0f3460; }
+.search-row { display:flex; gap:6px; align-items:center; margin-bottom:8px; }
+.search-input-wrap { flex:1; position:relative; }
+.search-input-wrap input {
+  width:100%; padding:11px 36px 11px 14px; border-radius:11px; border:1px solid var(--border);
+  font-size:13px; background:var(--bg); font-family:inherit; outline:none;
+  transition:border-color .15s;
+}
+.search-input-wrap input:focus { border-color:var(--green); background:#fff; }
+body.dark .search-input-wrap input { background:#1a1a2e; border-color:#333; color:#fff; }
+.search-input-wrap i { position:absolute; right:12px; top:50%; transform:translateY(-50%); color:var(--subtle); pointer-events:none; font-size:13px; }
+
+.geo-btn {
+  width:38px; height:38px; border:none; background:var(--green-pale); color:var(--green);
+  border-radius:11px; cursor:pointer; font-size:15px; display:flex; align-items:center;
+  justify-content:center; flex-shrink:0; transition:all .15s;
+}
+.geo-btn:hover { background:var(--green); color:#fff; }
+.geo-btn:disabled { opacity:.5; cursor:wait; }
+
+.action-btn {
+  padding:11px 16px; border-radius:11px; font-weight:700; font-size:13px; border:none;
+  cursor:pointer; background:var(--green); color:#fff; display:flex; align-items:center; gap:6px;
+  white-space:nowrap; width:100%; justify-content:center; transition:background .15s;
+}
+.action-btn:hover { background:var(--green-dark); }
+.action-btn:disabled { opacity:.6; cursor:wait; }
+
+/* AUTOCOMPLETE */
+.address-suggestions {
+  position:absolute; top:calc(100% + 4px); left:0; right:0; background:#fff;
+  border:1px solid var(--border); border-radius:10px; max-height:200px; overflow-y:auto;
+  z-index:50; display:none; box-shadow:var(--shadow-md);
+}
+.address-suggestions.show { display:block; }
+body.dark .address-suggestions { background:#1f3460; border-color:#333; }
+.suggestion-item {
+  padding:9px 12px; cursor:pointer; font-size:13px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; gap:8px; transition:background .12s;
+}
+.suggestion-item:last-child { border-bottom:none; }
+.suggestion-item:hover { background:var(--green-pale); }
+body.dark .suggestion-item:hover { background:#2a3f6e; }
+.suggestion-icon { font-size:14px; color:var(--green); flex-shrink:0; }
+.suggestion-text { flex:1; min-width:0; }
+.suggestion-name { font-weight:600; color:var(--ink); font-size:13px; }
+.suggestion-name mark { background:transparent; color:var(--green); font-weight:800; }
+.suggestion-sub { font-size:10px; color:var(--muted); margin-top:1px; }
+body.dark .suggestion-name { color:#e0e0e0; }
+
+/* FILTERS */
+.filter-bar { display:flex; gap:6px; padding:6px 0 0; flex-wrap:wrap; }
+.filter-btn {
+  background:var(--bg); border:1px solid var(--border); padding:5px 10px; border-radius:18px;
+  font-size:11px; color:var(--text); display:flex; align-items:center; gap:4px;
+  cursor:pointer; font-family:inherit; font-weight:600; transition:all .15s;
+}
+.filter-btn:hover { border-color:var(--green); }
+.filter-btn.active { background:var(--green-pale); color:var(--green); border-color:var(--green); }
+body.dark .filter-btn { background:#1a1a2e; border-color:#333; color:#e0e0e0; }
+
+.filter-panel { display:none; padding:8px 0; }
+.filter-panel.active { display:block; }
+.filter-panel input[type=range] { width:100%; margin-top:6px; accent-color:var(--green); }
+.filter-panel label { font-size:12px; font-weight:600; }
+
+/* Vehicle icons row */
+.vehicle-icons {
+  display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;
+}
+.vehicle-icon-btn {
+  flex:1; min-width:55px; padding:8px 6px; border:1.5px solid var(--border);
+  background:#fff; border-radius:10px; cursor:pointer; text-align:center;
+  font-family:inherit; transition:all .15s;
+}
+.vehicle-icon-btn:hover { border-color:var(--green); }
+.vehicle-icon-btn.active { border-color:var(--green); background:var(--green-pale); }
+.vehicle-icon-btn i { font-size:16px; color:var(--text); display:block; margin-bottom:2px; }
+.vehicle-icon-btn.active i { color:var(--green); }
+.vehicle-icon-btn span { font-size:10px; font-weight:600; color:var(--text); }
+body.dark .vehicle-icon-btn { background:#1a1a2e; border-color:#333; }
+body.dark .vehicle-icon-btn span { color:#e0e0e0; }
+
+/* TRIP OVERLAY */
+.trip-overlay {
+  position:absolute; bottom:230px; left:0; right:0; max-height:200px; overflow-y:auto;
+  padding:0 10px; z-index:5; display:none;
+}
+.trip-overlay.show { display:block; }
+.trip-card {
+  background:#fff; border-radius:13px; padding:11px 12px; margin-bottom:8px;
+  box-shadow:var(--shadow-md); font-size:12px; cursor:pointer; transition:all .2s;
+}
+.trip-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-lg); }
+body.dark .trip-card { background:#1f3460; }
+.trip-card-top { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.trip-card-ava {
+  width:32px; height:32px; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; color:#fff; font-weight:700; font-size:13px; flex-shrink:0;
+}
+.trip-card-name { flex:1; min-width:0; }
+.trip-card-driver { font-weight:700; font-size:12px; }
+.trip-card-car { font-size:10px; color:var(--muted); }
+.trip-card-rating { background:var(--green-pale); color:var(--green); padding:2px 6px; border-radius:8px; font-size:10px; font-weight:700; }
+.trip-card-route { display:flex; align-items:center; gap:5px; font-size:11px; font-weight:600; margin-bottom:5px; }
+.trip-card-dot { width:6px; height:6px; border-radius:50%; }
+.trip-card-dot.from { background:var(--green); }
+.trip-card-dot.to { background:var(--amber); }
+.trip-card-bottom { display:flex; align-items:center; justify-content:space-between; }
+.trip-card-price { font-weight:800; color:var(--green); font-size:14px; }
+.trip-card-book {
+  background:var(--green); color:#fff; border:none; padding:5px 11px;
+  border-radius:7px; font-size:11px; font-weight:700; cursor:pointer; font-family:inherit;
+}
+.trip-card-book:hover { background:var(--green-dark); }
+
+.empty-overlay {
+  text-align:center; padding:20px; color:var(--muted); font-size:12px;
+  background:rgba(255,255,255,.95); border-radius:12px; margin:0 10px;
+}
+body.dark .empty-overlay { background:rgba(31,52,96,.95); }
+
+/* ════ FORM (OFFER) ════ */
+.scroll-screen { flex:1; overflow-y:auto; padding:14px; }
+.form-group { margin-bottom:10px; }
+.form-label { font-size:.7rem; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin-bottom:5px; display:block; }
+.input-wrap-form { position:relative; display:flex; align-items:center; gap:6px; }
+.form-input {
+  flex:1; padding:10px 12px; border:1px solid var(--border); border-radius:10px;
+  font-size:13px; background:var(--bg); font-family:inherit; outline:none;
+  transition:border-color .15s; width:100%;
+}
+.form-input:focus { border-color:var(--green); background:#fff; }
+body.dark .form-input { background:#1a1a2e; border-color:#333; color:#fff; }
+.input-with-icon { padding-left:38px; }
+.input-icon-left { position:absolute; left:12px; color:var(--green); pointer-events:none; }
+.map-pick-btn {
+  width:38px; height:38px; border:1px solid var(--border); background:var(--green-pale);
+  color:var(--green); border-radius:10px; cursor:pointer; font-size:14px;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.map-pick-btn:hover { background:var(--green); color:#fff; }
+
+.form-row-2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+
+.counter-box {
+  display:flex; align-items:center; justify-content:space-between;
+  background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:9px 12px;
+}
+body.dark .counter-box { background:#1a1a2e; border-color:#333; }
+.counter-controls { display:flex; align-items:center; gap:10px; }
+.counter-btn {
+  width:30px; height:30px; border-radius:50%; border:1px solid var(--border);
+  background:#fff; font-size:14px; cursor:pointer; display:flex; align-items:center;
+  justify-content:center; transition:all .15s;
+}
+.counter-btn:hover { border-color:var(--green); color:var(--green); }
+.counter-value { font-weight:700; font-size:14px; min-width:20px; text-align:center; }
+
+.parcel-grid, .weight-grid {
+  display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:10px;
+}
+.weight-grid { grid-template-columns:repeat(2,1fr); }
+.option-btn {
+  padding:9px 6px; border:1.5px solid var(--border); border-radius:10px;
+  background:#fff; cursor:pointer; font-size:11px; text-align:center;
+  transition:all .15s; font-family:inherit;
+}
+body.dark .option-btn { background:#1a1a2e; border-color:#333; color:#e0e0e0; }
+.option-btn:hover { border-color:var(--green); }
+.option-btn.active { border-color:var(--green); background:var(--green-pale); color:var(--green); }
+.option-btn i { font-size:14px; display:block; margin-bottom:3px; }
+.option-btn .option-sub { font-size:9px; color:var(--muted); margin-top:1px; }
+
+.checkbox-row {
+  display:flex; align-items:center; gap:8px; padding:8px 0; cursor:pointer;
+  font-size:12px; font-weight:500;
+}
+.checkbox-row input { accent-color:var(--green); width:16px; height:16px; }
+
+.price-display {
+  background:linear-gradient(135deg,var(--green-pale),var(--green-light));
+  padding:11px 14px; border-radius:10px; margin:10px 0; font-size:13px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.price-display b { font-size:18px; color:var(--green); font-weight:900; }
+body.dark .price-display { background:#1a3329; color:#e0e0e0; }
+
+.submit-btn {
+  background:var(--blue); color:#fff; border:none; padding:13px;
+  border-radius:12px; font-weight:800; font-size:15px; cursor:pointer; width:100%;
+  font-family:inherit; transition:background .15s;
+}
+.submit-btn:hover { background:#1d4ed8; }
+.submit-btn.green { background:var(--green); }
+.submit-btn.green:hover { background:var(--green-dark); }
+.submit-btn.red { background:var(--red); }
+.submit-btn.red:hover { background:#dc2626; }
+
+/* ════ MAP PICKER MODAL ════ */
+.map-picker-overlay {
+  position:absolute; inset:0; background:#fff; z-index:300;
+  display:none; flex-direction:column; border-radius:36px;
+}
+.map-picker-overlay.show { display:flex; }
+.map-picker-header {
+  padding:14px 18px; display:flex; align-items:center; justify-content:space-between;
+  border-bottom:1px solid var(--border);
+}
+.map-picker-header h3 { font-size:15px; font-weight:700; }
+.map-picker-close {
+  width:32px; height:32px; border:none; background:var(--bg); border-radius:50%;
+  cursor:pointer; font-size:14px; color:var(--text);
+}
+#mapPicker { flex:1; }
+.map-picker-actions { padding:12px 14px; display:flex; gap:8px; border-top:1px solid var(--border); }
+.map-picker-actions button { flex:1; }
+.map-picker-info {
+  position:absolute; top:60px; left:14px; right:14px;
+  background:rgba(255,255,255,.95); padding:10px 14px; border-radius:10px;
+  box-shadow:var(--shadow-md); font-size:12px; font-weight:600; color:var(--text);
+  z-index:5;
+}
+
+/* ════ TABS (in screens) ════ */
+.tabs-row {
+  display:flex; gap:0; border-bottom:1px solid var(--border); padding:0 14px;
+  flex-shrink:0; background:#fff;
+}
+body.dark .tabs-row { background:#0f3460; border-color:#2a3f6e; }
+.tab-link {
+  padding:11px 14px; font-weight:600; cursor:pointer; color:var(--muted);
+  font-size:13px; border-bottom:2.5px solid transparent; transition:all .15s;
+}
+.tab-link:hover { color:var(--text); }
+.tab-link.active { color:var(--green); border-bottom-color:var(--green); }
+
+/* ════ MY TRIPS ════ */
+.my-trip-card {
+  background:#fff; border:1px solid var(--border); border-radius:12px;
+  padding:12px; margin-bottom:10px; cursor:pointer; transition:all .2s;
+}
+body.dark .my-trip-card { background:#1f3460; border-color:#2a3f6e; }
+.my-trip-card:hover { box-shadow:var(--shadow-md); transform:translateY(-1px); }
+.my-trip-top { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.my-trip-ava {
+  width:38px; height:38px; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; color:#fff; font-weight:700; flex-shrink:0;
+}
+.my-trip-info { flex:1; min-width:0; }
+.my-trip-route { font-weight:700; font-size:13px; }
+.my-trip-meta { font-size:11px; color:var(--muted); margin-top:1px; }
+.my-trip-status {
+  padding:3px 8px; border-radius:14px; font-size:10px; font-weight:700; flex-shrink:0;
+}
+.my-trip-status.pending { background:#fef3c7; color:#92400e; }
+.my-trip-status.confirmed { background:var(--green-pale); color:var(--green); }
+.my-trip-status.completed { background:#e0e7ff; color:#4338ca; }
+.my-trip-status.cancelled { background:#fee2e2; color:var(--red); }
+.my-trip-actions { display:flex; gap:6px; margin-top:8px; }
+.my-trip-actions button {
+  flex:1; padding:7px; border-radius:8px; font-size:11px; font-weight:700; border:none;
+  cursor:pointer; font-family:inherit; transition:all .15s;
+}
+.btn-chat { background:var(--blue-light); color:var(--blue); }
+.btn-chat:hover { background:var(--blue); color:#fff; }
+.btn-cancel { background:#fee2e2; color:var(--red); }
+.btn-cancel:hover { background:var(--red); color:#fff; }
+.btn-rate { background:var(--amber); color:#fff; }
+
+/* ════ NAVBAR ════ */
+.navbar {
+  height:60px; background:#fff; border-top:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-around;
+  padding:6px 8px; z-index:20; flex-shrink:0;
+}
+body.dark .navbar { background:#0f3460; border-color:#2a3f6e; }
+.nav-item {
+  display:flex; flex-direction:column; align-items:center; font-size:9px;
+  color:var(--muted); cursor:pointer; gap:2px; padding:4px 8px;
+  transition:color .15s; position:relative;
+}
+.nav-item i { font-size:18px; }
+.nav-item.active { color:var(--blue); }
+.nav-item.central {
+  background:var(--blue); color:#fff; width:44px; height:44px; border-radius:50%;
+  transform:translateY(-8px); box-shadow:var(--shadow-md);
+}
+.nav-item.central i { font-size:18px; }
+.nav-badge {
+  position:absolute; top:0; right:4px; background:var(--red); color:#fff;
+  border-radius:9px; padding:1px 5px; font-size:8px; font-weight:800;
+}
+
+/* ════ MODAL ════ */
+.modal-bg {
+  position:absolute; inset:0; background:rgba(0,0,0,.5); backdrop-filter:blur(4px);
+  z-index:1000; display:none; align-items:flex-end; justify-content:center;
+  border-radius:36px;
+}
+.modal-bg.show { display:flex; }
+.modal {
+  background:#fff; width:100%; border-radius:24px 24px 0 0;
+  max-height:90%; overflow-y:auto; animation:slideUp .3s cubic-bezier(.34,1.56,.64,1);
+}
+body.dark .modal { background:#16213e; color:#e0e0e0; }
+@keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+
+.modal-handle { width:36px; height:4px; background:var(--border); border-radius:2px; margin:10px auto 0; }
+.modal-head {
+  padding:14px 18px; display:flex; align-items:center; justify-content:space-between;
+  border-bottom:1px solid var(--border);
+}
+.modal-title { font-size:16px; font-weight:800; }
+.modal-close {
+  width:30px; height:30px; border:none; background:var(--bg); border-radius:50%;
+  cursor:pointer; font-size:13px; color:var(--text);
+}
+.modal-body { padding:14px 18px; }
+.modal-actions { padding:12px 18px 18px; display:flex; gap:8px; border-top:1px solid var(--border); }
+.modal-btn {
+  flex:1; padding:12px; border-radius:11px; font-weight:800; font-size:13px;
+  cursor:pointer; border:none; font-family:inherit; transition:all .15s;
+}
+.modal-btn.primary { background:var(--green); color:#fff; }
+.modal-btn.primary:hover { background:var(--green-dark); }
+.modal-btn.ghost { background:var(--bg); color:var(--text); }
+.modal-btn.ghost:hover { background:var(--border); }
+
+/* ════ SUCCESS ════ */
+.success-modal { padding:28px 22px; text-align:center; }
+.success-icon {
+  width:64px; height:64px; background:var(--green-pale); border-radius:50%;
+  display:flex; align-items:center; justify-content:center; margin:0 auto 14px;
+  font-size:1.8rem; color:var(--green); animation:bounce .6s ease;
+}
+@keyframes bounce { 0%{transform:scale(0)} 50%{transform:scale(1.2)} 100%{transform:scale(1)} }
+.success-title { font-size:1.15rem; font-weight:900; margin-bottom:6px; }
+.success-sub { font-size:.85rem; color:var(--muted); line-height:1.5; margin-bottom:18px; }
+.success-code {
+  background:var(--bg); border:1px dashed var(--border); border-radius:9px;
+  padding:12px; margin-bottom:14px;
+}
+.sc-label { font-size:10px; font-weight:700; letter-spacing:1px; color:var(--muted); text-transform:uppercase; margin-bottom:3px; }
+.sc-value { font-size:18px; font-weight:900; letter-spacing:1px; }
+
+/* ════ CHAT ════ */
+.chat-modal { height:90%; max-height:90%; border-radius:24px 24px 0 0; display:flex; flex-direction:column; }
+.chat-head-row {
+  padding:12px 16px; display:flex; align-items:center; gap:10px;
+  border-bottom:1px solid var(--border); flex-shrink:0;
+}
+.chat-back-btn {
+  width:30px; height:30px; border:none; background:var(--bg); border-radius:50%;
+  cursor:pointer; font-size:13px;
+}
+.chat-ava {
+  width:34px; height:34px; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; color:#fff; font-weight:700; font-size:14px;
+}
+.chat-info { flex:1; min-width:0; }
+.chat-name { font-weight:700; font-size:13px; }
+.chat-status-text { font-size:10px; color:var(--green); display:flex; align-items:center; gap:3px; }
+.chat-body {
+  flex:1; overflow-y:auto; padding:14px; background:var(--bg);
+  display:flex; flex-direction:column; gap:7px;
+}
+body.dark .chat-body { background:#0c1530; }
+.chat-msg {
+  max-width:78%; padding:8px 11px; border-radius:13px; font-size:13px; line-height:1.4;
+  word-wrap:break-word;
+}
+.chat-msg.me { align-self:flex-end; background:var(--green); color:#fff; border-bottom-right-radius:4px; }
+.chat-msg.them { align-self:flex-start; background:#fff; color:var(--ink); border-bottom-left-radius:4px; box-shadow:var(--shadow-sm); }
+body.dark .chat-msg.them { background:#1f3460; color:#e0e0e0; }
+.chat-msg .time { font-size:10px; opacity:.7; margin-top:2px; display:block; }
+.chat-system {
+  align-self:center; background:#fef3c7; color:#92400e; padding:6px 11px;
+  border-radius:10px; font-size:11px; font-weight:600; white-space:pre-line;
+  max-width:85%; text-align:center;
+}
+
+.chat-msg.geo { background:#fff; padding:0; overflow:hidden; max-width:240px; }
+.chat-msg.geo.me { background:var(--green-pale); }
+.chat-geo-map { background:linear-gradient(135deg,#cfe8d7,#a4d4b5); height:90px; display:flex; align-items:center; justify-content:center; font-size:1.8rem; position:relative; }
+.chat-geo-map::before { content:''; position:absolute; inset:0; background-image:linear-gradient(rgba(255,255,255,.4) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.4) 1px,transparent 1px); background-size:18px 18px; }
+.chat-geo-body { padding:8px 11px; color:var(--ink); }
+.chat-geo-title { font-weight:700; font-size:12px; }
+.chat-geo-coords { font-size:10px; color:var(--muted); margin-top:1px; }
+.chat-geo-link { display:block; color:var(--green); font-weight:700; font-size:11px; text-decoration:none; padding:7px 11px; text-align:center; border-top:1px solid var(--border); }
+
+.chat-msg.check { background:#fff; padding:0; max-width:260px; border:1px solid var(--border); }
+.chat-check-head { padding:8px 11px; background:var(--ink); color:#fff; font-size:11px; font-weight:800; }
+.chat-check-body { padding:10px 11px; color:var(--ink); }
+.chat-check-row { display:flex; justify-content:space-between; font-size:11px; margin-bottom:4px; }
+.chat-check-row span:first-child { color:var(--muted); }
+.chat-check-row span:last-child { font-weight:700; }
+.chat-check-total { border-top:1px dashed var(--border); padding-top:6px; margin-top:6px; font-weight:900; color:var(--green); font-size:13px; }
+
+.chat-input-row { padding:9px 12px; background:#fff; border-top:1px solid var(--border); display:flex; gap:6px; align-items:center; flex-shrink:0; position:relative; }
+body.dark .chat-input-row { background:#0f3460; }
+.chat-attach-btn { width:34px; height:34px; border:none; background:var(--bg); border-radius:50%; cursor:pointer; font-size:15px; }
+.chat-input { flex:1; border:1px solid var(--border); border-radius:18px; padding:8px 13px; font-family:inherit; font-size:13px; outline:none; background:var(--bg); }
+.chat-input:focus { border-color:var(--green); background:#fff; }
+body.dark .chat-input { background:#1a1a2e; border-color:#333; color:#fff; }
+.chat-send-btn { width:34px; height:34px; border:none; background:var(--green); color:#fff; border-radius:50%; cursor:pointer; font-size:14px; }
+.chat-send-btn:hover { background:var(--green-dark); }
+
+.attach-menu {
+  position:absolute; bottom:54px; left:12px; background:#fff; border:1px solid var(--border);
+  border-radius:11px; padding:5px; box-shadow:var(--shadow-lg); display:none; z-index:10; min-width:170px;
+}
+body.dark .attach-menu { background:#1f3460; }
+.attach-menu.show { display:block; }
+.attach-opt {
+  display:flex; align-items:center; gap:9px; padding:8px 11px; border-radius:8px;
+  cursor:pointer; font-size:12px; font-weight:600; border:none; background:none;
+  width:100%; font-family:inherit; text-align:left; color:var(--ink);
+}
+body.dark .attach-opt { color:#e0e0e0; }
+.attach-opt:hover { background:var(--green-pale); }
+.attach-opt i { font-size:14px; color:var(--green); }
+
+/* ════ AUTH (SMS step) ════ */
+.sms-code-row { display:flex; gap:8px; justify-content:center; margin:18px 0; }
+.sms-code-input {
+  width:44px; height:54px; border:2px solid var(--border); border-radius:12px;
+  font-size:22px; font-weight:800; text-align:center; outline:none;
+  font-family:inherit; transition:border-color .15s;
+}
+.sms-code-input:focus { border-color:var(--green); }
+.sms-hint { text-align:center; font-size:12px; color:var(--muted); margin-top:8px; }
+.sms-hint b { color:var(--green); font-size:14px; }
+.resend-btn {
+  background:none; border:none; color:var(--blue); font-weight:700; font-size:12px;
+  cursor:pointer; font-family:inherit; margin-top:6px;
+}
+
+/* ════ PROFILE ════ */
+.profile-header { text-align:center; padding:20px 14px; }
+.profile-ava {
+  width:80px; height:80px; border-radius:50%; background:linear-gradient(135deg,var(--green),var(--blue));
+  display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800;
+  font-size:30px; margin:0 auto 12px;
+}
+.profile-name { font-weight:800; font-size:18px; margin-bottom:3px; }
+.profile-verified { background:var(--green-pale); color:var(--green); padding:3px 10px; border-radius:14px; font-size:11px; font-weight:700; display:inline-flex; align-items:center; gap:4px; }
+.profile-phone { color:var(--muted); font-size:13px; margin-top:6px; }
+
+.profile-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; padding:0 14px 14px; }
+.stat-card { background:var(--bg); border-radius:11px; padding:11px; text-align:center; }
+body.dark .stat-card { background:#1a1a2e; }
+.stat-value { font-size:18px; font-weight:900; color:var(--green); }
+.stat-label { font-size:10px; color:var(--muted); font-weight:600; margin-top:1px; }
+
+.menu-item {
+  display:flex; align-items:center; gap:11px; padding:12px 14px; cursor:pointer;
+  font-size:13px; font-weight:600; transition:background .12s; border-bottom:1px solid var(--border);
+}
+.menu-item:hover { background:var(--bg); }
+.menu-item i { width:22px; color:var(--green); }
+.menu-item .menu-arrow { margin-left:auto; color:var(--muted); }
+
+/* ════ COURIER REG ════ */
+.upload-zone {
+  border:2px dashed var(--border); border-radius:10px; padding:18px; text-align:center;
+  background:var(--bg); cursor:pointer; transition:all .15s; margin-bottom:8px;
+}
+.upload-zone:hover { border-color:var(--green); background:var(--green-pale); }
+.upload-zone i { font-size:1.8rem; color:var(--green); margin-bottom:5px; display:block; }
+.upload-zone .uz-text { font-size:12px; font-weight:700; margin-bottom:2px; }
+.upload-zone .uz-sub { font-size:10px; color:var(--muted); }
+.upload-zone img { max-width:100%; max-height:120px; border-radius:8px; }
+
+.section-num {
+  display:inline-flex; width:22px; height:22px; background:var(--green); color:#fff;
+  border-radius:50%; font-size:11px; font-weight:800; align-items:center;
+  justify-content:center; margin-right:7px;
+}
+
+/* ════ ADMIN ════ */
+.admin-stats { padding:14px; display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+.admin-stat-card { background:#fff; border:1px solid var(--border); border-radius:11px; padding:12px; }
+body.dark .admin-stat-card { background:#1f3460; }
+.admin-stat-v { font-size:20px; font-weight:900; color:var(--green); }
+.admin-stat-l { font-size:11px; color:var(--muted); font-weight:600; margin-top:2px; }
+
+/* ════ FAQ ════ */
+.faq-item { margin-bottom:8px; }
+.faq-q { font-weight:600; cursor:pointer; padding:11px 13px; background:var(--bg); border-radius:9px; font-size:13px; transition:all .15s; }
+body.dark .faq-q { background:#1a1a2e; }
+.faq-q.active { background:var(--green-pale); color:var(--green); }
+.faq-a { display:none; padding:11px 13px; font-size:12px; color:var(--muted); line-height:1.5; }
+.faq-a.active { display:block; }
+
+/* ════ HELP CENTER ════ */
+.help-tab-content { animation: fadeIn .25s ease; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+/* Hero */
+.help-hero {
+  background: linear-gradient(135deg, #10b981, #059669);
+  padding: 28px 20px 24px; text-align: center; color: #fff; margin-bottom: 0;
+}
+.help-hero-emoji { font-size: 3rem; margin-bottom: 8px; animation: carDrive 2s ease-in-out infinite alternate; display: inline-block; }
+@keyframes carDrive { from{transform:translateX(-8px)} to{transform:translateX(8px)} }
+.help-hero-title { font-size: 1.15rem; font-weight: 800; margin-bottom: 4px; }
+.help-hero-sub { font-size: .8rem; opacity: .85; font-weight: 500; }
+
+.help-section-title {
+  font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .6px;
+  color: var(--muted); margin: 18px 0 10px; display: flex; align-items: center; gap: 6px;
+}
+.help-section-title i { color: var(--green); font-size: .8rem; }
+
+/* Guide steps */
+.guide-step {
+  background: #fff; border: 1px solid var(--border); border-radius: 14px; margin-bottom: 10px;
+  overflow: hidden; cursor: pointer; transition: box-shadow .2s;
+}
+.guide-step:hover { box-shadow: var(--shadow-md); }
+body.dark .guide-step { background: #1f3460; border-color: #2a3f6e; }
+
+.guide-step-head { display: flex; align-items: center; gap: 12px; padding: 13px 14px; }
+.guide-step-num {
+  width: 28px; height: 28px; background: var(--green); color: #fff;
+  border-radius: 50%; font-weight: 800; font-size: 13px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.guide-step-info { flex: 1; min-width: 0; }
+.guide-step-title { font-weight: 700; font-size: 13px; }
+.guide-step-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+.guide-step-arrow { color: var(--muted); font-size: 12px; transition: transform .25s; flex-shrink: 0; }
+.guide-step.open .guide-step-arrow { transform: rotate(180deg); }
+.guide-step-body { display: none; padding: 0 14px 14px; }
+.guide-step.open .guide-step-body { display: block; animation: fadeIn .2s ease; }
+
+/* Mock UI inside steps */
+.guide-mock {
+  background: var(--bg); border-radius: 10px; padding: 12px; margin-bottom: 10px;
+  border: 1px solid var(--border);
+}
+body.dark .guide-mock { background: #0f1c3a; }
+.mock-input {
+  display: flex; align-items: center; background: #fff; border: 1.5px solid var(--green);
+  border-radius: 9px; padding: 9px 11px; font-size: 12px; min-height: 36px;
+}
+body.dark .mock-input { background: #1a2a5e; color: #e0e0e0; }
+.mock-btn {
+  background: var(--green); color: #fff; border-radius: 9px; padding: 9px 14px;
+  font-size: 12px; font-weight: 700; text-align: center; margin-top: 8px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.mock-card {
+  display: flex; align-items: center; gap: 10px; background: #fff;
+  border: 1.5px solid var(--green-light); border-radius: 10px; padding: 9px 11px; margin-bottom: 7px;
+}
+body.dark .mock-card { background: #1a2a5e; }
+.mock-ava {
+  width: 30px; height: 30px; border-radius: 50%; color: #fff; font-weight: 700;
+  font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.mock-pay-btn {
+  flex: 1; border: 1.5px solid var(--border); border-radius: 9px; padding: 8px;
+  text-align: center; font-size: 11px; font-weight: 600; background: #fff;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+}
+body.dark .mock-pay-btn { background: #1a2a5e; }
+.mock-pay-btn.active { border-color: var(--green); background: var(--green-pale); }
+.mock-pay-btn i { font-size: 16px; }
+.mock-chat-msg {
+  border-radius: 10px; padding: 9px 12px; font-size: 11px; line-height: 1.5;
+}
+.mock-chat-msg.system { background: #fef3c7; color: #92400e; font-weight: 600; }
+
+/* Animated route */
+.mock-route-anim {
+  display: flex; align-items: flex-start; gap: 0;
+}
+.route-dot {
+  width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 2px currentColor; flex-shrink: 0; margin-top: 2px;
+}
+.route-dot.green { color: var(--green); background: var(--green); margin-left: 1px; }
+.route-dot.amber { color: var(--amber); background: var(--amber); margin-left: 1px; }
+.route-line {
+  width: 2px; height: 20px; background: linear-gradient(to bottom, var(--green), var(--amber));
+  margin: 4px 5px; flex-shrink: 0; border-radius: 2px;
+  animation: routePulse 1.5s ease-in-out infinite;
+}
+@keyframes routePulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* Typing animation */
+.typing-text::after { content: '|'; animation: blink .6s infinite; color: var(--green); }
+@keyframes blinkCursor { 0%,100%{opacity:1} 50%{opacity:0} }
+
+.guide-tip {
+  font-size: 11px; color: var(--muted); background: var(--green-pale);
+  border-radius: 8px; padding: 8px 10px; margin: 0; line-height: 1.5; border-left: 3px solid var(--green);
+}
+body.dark .guide-tip { background: #0f2a20; color: #a7f3d0; }
+
+/* Map tips */
+.help-map-tip-card {
+  background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 11px;
+}
+body.dark .help-map-tip-card { background: #1f3460; }
+.map-tip-row { display: flex; align-items: flex-start; gap: 11px; font-size: 12px; line-height: 1.5; }
+.map-tip-icon { font-size: 1.3rem; flex-shrink: 0; }
+
+/* FAQ improved */
+.faq-q { display: flex; align-items: center; }
+.faq-a-inner { padding: 4px 0 8px; line-height: 1.6; }
+.faq-pay-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; font-size: 13px; }
+
+/* Safety */
+.safety-hero { text-align: center; padding: 20px 14px 14px; }
+.safety-hero-title { font-size: 1.1rem; font-weight: 800; margin-top: 8px; }
+.safety-card {
+  display: flex; gap: 13px; align-items: flex-start;
+  border-radius: 14px; padding: 13px 14px; margin-bottom: 10px; border: 1px solid transparent;
+}
+.safety-card.green { background: var(--green-pale); border-color: var(--green-light); }
+.safety-card.blue { background: var(--blue-light); border-color: #bfdbfe; }
+.safety-card.amber { background: #fffbeb; border-color: #fde68a; }
+.safety-card.red { background: #fef2f2; border-color: #fecaca; }
+.safety-card-icon { font-size: 1.5rem; flex-shrink: 0; margin-top: 1px; }
+.safety-card.green .safety-card-icon { color: var(--green); }
+.safety-card.blue .safety-card-icon { color: var(--blue); }
+.safety-card.amber .safety-card-icon { color: var(--amber); }
+.safety-card.red .safety-card-icon { color: var(--red); }
+.safety-card-title { font-weight: 700; font-size: 13px; margin-bottom: 3px; }
+.safety-card-text { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.safety-tips-box {
+  background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 14px;
+  margin-top: 4px;
+}
+body.dark .safety-tips-box { background: #1f3460; }
+.safety-tips-title { font-weight: 700; font-size: 13px; margin-bottom: 11px; }
+.safety-tip-item { display: flex; align-items: center; gap: 9px; font-size: 12px; margin-bottom: 8px; }
+
+/* Support chat */
+.support-chat-box {
+  background: #fff; border: 1px solid var(--border); border-radius: 18px; overflow: hidden;
+}
+body.dark .support-chat-box { background: #1f3460; }
+.support-chat-head {
+  background: var(--green); padding: 12px 16px; display: flex; align-items: center; gap: 11px; color: #fff;
+}
+.support-ava {
+  width: 38px; height: 38px; background: rgba(255,255,255,.2); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0;
+}
+.support-chat-msgs {
+  padding: 12px; min-height: 100px; max-height: 180px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 7px; background: var(--bg);
+}
+body.dark .support-chat-msgs { background: #0c1530; }
+.sup-msg {
+  max-width: 85%; padding: 8px 11px; border-radius: 12px; font-size: 12px; line-height: 1.5;
+}
+.sup-msg.bot { align-self: flex-start; background: #fff; color: var(--ink); box-shadow: var(--shadow-sm); border-bottom-left-radius: 3px; }
+body.dark .sup-msg.bot { background: #1f3460; color: #e0e0e0; }
+.sup-msg.user { align-self: flex-end; background: var(--green); color: #fff; border-bottom-right-radius: 3px; }
+.support-quick-btns {
+  padding: 8px 10px; display: flex; flex-wrap: wrap; gap: 6px; background: var(--bg); border-top: 1px solid var(--border);
+}
+body.dark .support-quick-btns { background: #0c1530; }
+.support-quick-btns button {
+  background: #fff; border: 1px solid var(--border); border-radius: 18px;
+  padding: 5px 10px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit;
+  color: var(--text); transition: all .15s;
+}
+body.dark .support-quick-btns button { background: #1a2a5e; color: #e0e0e0; border-color: #333; }
+.support-quick-btns button:hover { background: var(--green-pale); border-color: var(--green); color: var(--green); }
+.support-input-row {
+  display: flex; gap: 8px; padding: 10px 12px; background: #fff; border-top: 1px solid var(--border);
+}
+body.dark .support-input-row { background: #0f3460; }
+.support-input {
+  flex: 1; border: 1px solid var(--border); border-radius: 18px; padding: 8px 13px;
+  font-family: inherit; font-size: 12px; outline: none; background: var(--bg);
+}
+.support-input:focus { border-color: var(--green); }
+body.dark .support-input { background: #1a1a2e; border-color: #333; color: #fff; }
+.support-send {
+  width: 34px; height: 34px; background: var(--green); color: #fff;
+  border: none; border-radius: 50%; cursor: pointer; font-size: 14px;
+}
+
+/* ════ ANIMATED TYPING ════ */
+@keyframes typing {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+/* end help center */
+
+  background:#fff; border:2.5px solid var(--green); border-radius:50%;
+  width:36px; height:36px; display:flex; align-items:center; justify-content:center;
+  font-size:.95rem; box-shadow:var(--shadow-md); cursor:pointer;
+}
+
+/* CHAT NOTIFICATION DOT */
+@keyframes pulse-red { 0%,100% { transform:scale(1); } 50% { transform:scale(1.2); } }
+</style>
+</head>
+<body>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<div class="app" id="appContainer">
+
+  <!-- LOADING -->
+  <div id="loadingOverlay">
+    <div class="load-logo">🚗 Тачикпуть</div>
+    <div class="load-spin"></div>
+    <div class="load-text" id="loadingText">Подключение к серверу...</div>
+  </div>
+
+  <!-- ════════════════════════════════════
+       ГЛАВНАЯ С КАРТОЙ
+  ════════════════════════════════════ -->
+  <div id="screen-home" class="screen active">
+    <div class="header">
+      <div class="logo"><i class="fas fa-route"></i> Тачикпуть</div>
+      <div class="header-right">
+        <div class="sync-pill" id="syncPill">
+          <div class="sync-dot"></div>
+          <span id="syncText">Онлайн</span>
+        </div>
+        <button class="icon-btn" onclick="handleUserAvatar()" id="userIconBtn">
+          <i class="fas fa-user"></i>
+        </button>
+      </div>
+    </div>
+    <div class="map-screen">
+      <div id="map"></div>
+      <div id="tripOverlay" class="trip-overlay"></div>
+    </div>
+    <div class="search-panel">
+      <div class="search-row">
+        <div class="search-input-wrap">
+          <input type="text" placeholder="Откуда" id="searchFrom" oninput="clearAddrCoord('from'); handleAddressSearch(this.value, 'fromHomeSuggestions', 'searchFrom')" autocomplete="off">
+          <i class="fas fa-map-marker-alt"></i>
+          <div id="fromHomeSuggestions" class="address-suggestions"></div>
+        </div>
+        <div class="search-input-wrap">
+          <input type="text" placeholder="Куда" id="searchTo" oninput="clearAddrCoord('to'); handleAddressSearch(this.value, 'toHomeSuggestions', 'searchTo')" autocomplete="off">
+          <i class="fas fa-flag-checkered"></i>
+          <div id="toHomeSuggestions" class="address-suggestions"></div>
+        </div>
+        <button class="geo-btn" onclick="getRealLocation('searchFrom')" id="geoBtn" title="Моя геолокация">
+          <i class="fas fa-location-arrow"></i>
+        </button>
+      </div>
+      <button class="action-btn" onclick="searchRides()">
+        <i class="fas fa-search"></i> Найти поездку
+      </button>
+      <div class="filter-bar">
+        <button class="filter-btn" onclick="toggleFilter('price', this)"><i class="fas fa-tag"></i> Цена</button>
+        <button class="filter-btn" onclick="toggleFilter('time', this)"><i class="fas fa-clock"></i> Время</button>
+        <button class="filter-btn" onclick="toggleFilter('vehicle', this)"><i class="fas fa-car"></i> Транспорт</button>
+        <button class="filter-btn" onclick="toggleFilter('Date', this)"><i class="fas fa-calendar"></i> Дата</button>
+      </div>
+      <div id="filterPrice" class="filter-panel">
+        <label>Макс. цена: <b id="priceValue">200</b> сомони</label>
+        <input type="range" min="10" max="500" value="200" oninput="document.getElementById('priceValue').textContent=this.value; applyFilters()">
+      </div>
+      <div id="filterTime" class="filter-panel">
+        <label>Время отправления</label>
+        <select onchange="applyFilters()" id="timeSelect" class="form-input" style="margin-top:6px">
+          <option value="any">Любое</option>
+          <option value="morning">🌅 Утро (06-12)</option>
+          <option value="day">☀️ День (12-18)</option>
+          <option value="evening">🌆 Вечер (18-24)</option>
+        </select>
+      </div>
+      <div id="filterDate" class="filter-panel"><label>Дата поездки</label><input type="date" class="form-input" id="dateFilter" style="margin-top:6px" onchange="applyFilters()"></div>
+      <div id="filterVehicle" class="filter-panel">
+        <label>Тип транспорта</label>
+        <div class="vehicle-icons" id="vehicleFilterIcons">
+          <button class="vehicle-icon-btn active" data-vehicle="any" onclick="selectVehicleFilter(this)">
+            <i class="fas fa-shapes"></i><span>Все</span>
+          </button>
+          <button class="vehicle-icon-btn" data-vehicle="car" onclick="selectVehicleFilter(this)">
+            <i class="fas fa-car"></i><span>Легковой</span>
+          </button>
+          <button class="vehicle-icon-btn" data-vehicle="minivan" onclick="selectVehicleFilter(this)">
+            <i class="fas fa-shuttle-van"></i><span>Микроавт.</span>
+          </button>
+          <button class="vehicle-icon-btn" data-vehicle="truck" onclick="selectVehicleFilter(this)">
+            <i class="fas fa-truck"></i><span>Грузовой</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════
+       МОИ ПОЕЗДКИ
+  ════════════════════════════════════ -->
+  <div id="screen-trips" class="screen">
+    <div class="header">
+      <div class="logo"><i class="fas fa-route"></i> Поездки</div>
+      <div class="header-right">
+        <button class="icon-btn" onclick="loadMyTrips()"><i class="fas fa-sync"></i></button>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;padding:10px 14px 0;flex-shrink:0">
+      <button id="subtabPassenger" style="flex:1;padding:7px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--green);background:var(--green-pale);color:var(--green);font-family:inherit" onclick="switchTripsMode('passenger',this)"><i class="fas fa-user"></i> Мои брони</button>
+      <button id="subtabDriver" style="flex:1;padding:7px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:var(--bg);color:var(--muted);font-family:inherit" onclick="switchTripsMode('driver',this)"><i class="fas fa-car"></i> Мои поездки</button>
+    </div>
+    <div class="tabs-row" id="tripsTabsRow">
+      <div class="tab-link active" data-tab="active" onclick="filterMyTrips(this,'active')">Активные</div>
+      <div class="tab-link" data-tab="completed" onclick="filterMyTrips(this,'completed')">Завершённые</div>
+      <div class="tab-link" data-tab="cancelled" onclick="filterMyTrips(this,'cancelled')">Отменённые</div>
+    </div>
+    <div class="scroll-screen" id="myTripsContainer">
+      <div style="text-align:center;padding:40px;color:var(--muted)">
+        <i class="fas fa-inbox" style="font-size:48px;opacity:.3;margin-bottom:10px"></i>
+        <div>Загрузка...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════
+       ПРЕДЛОЖИТЬ ПОЕЗДКУ
+  ════════════════════════════════════ -->
+  <div id="screen-offer" class="screen">
+    <div class="header">
+      <button class="icon-btn" onclick="switchTab('home')"><i class="fas fa-arrow-left"></i></button>
+      <div class="logo">Предложить поездку</div>
+      <div style="width:34px"></div>
+    </div>
+    <div class="scroll-screen">
+
+      <div class="form-group">
+        <label class="form-label">Откуда</label>
+        <div class="input-wrap-form">
+          <div style="flex:1;position:relative">
+            <input class="form-input" id="offerFrom" placeholder="Город или адрес"
+              oninput="handleAddressSearch(this.value, 'fromSuggestions', 'offerFrom')" autocomplete="off">
+            <div id="fromSuggestions" class="address-suggestions"></div>
+          </div>
+          <button class="map-pick-btn" onclick="openMapPicker('offerFrom')" title="Выбрать на карте">
+            <i class="fas fa-map-marked-alt"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Куда</label>
+        <div class="input-wrap-form">
+          <div style="flex:1;position:relative">
+            <input class="form-input" id="offerTo" placeholder="Город или адрес"
+              oninput="handleAddressSearch(this.value, 'toSuggestions', 'offerTo')" autocomplete="off">
+            <div id="toSuggestions" class="address-suggestions"></div>
+          </div>
+          <button class="map-pick-btn" onclick="openMapPicker('offerTo')" title="Выбрать на карте">
+            <i class="fas fa-map-marked-alt"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Марка машины</label>
+        <input class="form-input" id="offerCar" placeholder="Hyundai Sonata, Toyota Camry...">
+      </div>
+      <div class="form-row-2">
+        <div class="form-group">
+          <label class="form-label">Дата</label>
+          <input class="form-input" type="date" id="offerDate">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Время</label>
+          <input class="form-input" type="time" id="offerTime">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Тип транспорта</label>
+        <div class="vehicle-icons" id="vehicleOfferIcons">
+          <button class="vehicle-icon-btn active" data-vehicle="car" onclick="selectVehicleOffer(this)">
+            <i class="fas fa-car"></i><span>Легковой</span>
+          </button>
+          <button class="vehicle-icon-btn" data-vehicle="minivan" onclick="selectVehicleOffer(this)">
+            <i class="fas fa-shuttle-van"></i><span>Микроавт.</span>
+          </button>
+          <button class="vehicle-icon-btn" data-vehicle="truck" onclick="selectVehicleOffer(this)">
+            <i class="fas fa-truck"></i><span>Грузовой</span>
+          </button>
+          <button class="vehicle-icon-btn" data-vehicle="semi" onclick="selectVehicleOffer(this)">
+            <i class="fas fa-truck-loading"></i><span>Полуприц.</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Пассажирских мест</label>
+        <div class="counter-box">
+          <span style="font-size:13px">Количество</span>
+          <div class="counter-controls">
+            <button class="counter-btn" onclick="changeSeats(-1)">−</button>
+            <span class="counter-value" id="seatCountDisplay">2</span>
+            <button class="counter-btn" onclick="changeSeats(1)">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Размер посылки</label>
+        <div class="parcel-grid" id="parcelSizeGroup">
+          <button class="option-btn active" data-parcel="small"><i class="fas fa-envelope"></i>Маленькая</button>
+          <button class="option-btn" data-parcel="medium"><i class="fas fa-box"></i>Средняя</button>
+          <button class="option-btn" data-parcel="large"><i class="fas fa-box-open"></i>Большая</button>
+          <button class="option-btn" data-parcel="documents"><i class="fas fa-file-alt"></i>Документы</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Вес</label>
+        <div class="weight-grid" id="weightGroup">
+          <button class="option-btn active" data-weight="light">Лёгкая<div class="option-sub">до 5 кг</div></button>
+          <button class="option-btn" data-weight="medium">Средняя<div class="option-sub">5-20 кг</div></button>
+          <button class="option-btn" data-weight="heavy">Тяжёлая<div class="option-sub">20-100 кг</div></button>
+          <button class="option-btn" data-weight="very_heavy">Очень тяж.<div class="option-sub">100-500 кг</div></button>
+        </div>
+      </div>
+
+      <label class="checkbox-row">
+        <input type="checkbox" id="insuranceCheck" onchange="updatePrice()">
+        <i class="fas fa-shield-alt" style="color:var(--green)"></i> Страховка (+2% от стоимости)
+      </label>
+      <label class="checkbox-row">
+        <input type="checkbox" id="doorDelivery" onchange="updatePrice()">
+        <i class="fas fa-door-open" style="color:var(--green)"></i> От двери до двери (+10%)
+      </label>
+
+      <div class="price-display">
+        <span>Рекомендованная цена</span>
+        <b id="recommendedPrice">200 сомони</b>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Своя цена (необязательно)</label>
+        <input class="form-input" type="number" id="customPrice" placeholder="Введите свою цену">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Примечание</label>
+        <textarea class="form-input" id="offerNote" placeholder="Ориентир, подъезд, контакт..." rows="2"></textarea>
+      </div>
+
+      <button class="submit-btn green" onclick="submitOffer()">
+        <i class="fas fa-paper-plane"></i> Разместить поездку
+      </button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════
+       ПРОФИЛЬ
+  ════════════════════════════════════ -->
+  <div id="screen-profile" class="screen">
+    <div class="header">
+      <div class="logo"><i class="fas fa-user-circle"></i> Профиль</div>
+      <button class="icon-btn" onclick="goAdmin()" title="Админ-панель"><i class="fas fa-cog"></i></button>
+    </div>
+    <div class="scroll-screen">
+      <div id="profileContent">
+        <!-- filled by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════
+       ПОМОЩЬ — Professional Help Center
+  ════════════════════════════════════ -->
+  <div id="screen-help" class="screen">
+    <div class="header">
+      <div class="logo"><i class="fas fa-question-circle"></i> Помощь</div>
+      <button class="icon-btn" onclick="showToast('Версия 2.1.0','ok')"><i class="fas fa-info-circle"></i></button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs-row" style="overflow-x:auto;white-space:nowrap;flex-wrap:nowrap;gap:0;padding:0 14px">
+      <div class="tab-link active" onclick="switchHelpTab(this,'howto')">Как пользоваться</div>
+      <div class="tab-link" onclick="switchHelpTab(this,'faq')">FAQ</div>
+      <div class="tab-link" onclick="switchHelpTab(this,'safety')">Безопасность</div>
+      <div class="tab-link" onclick="switchHelpTab(this,'support')">Поддержка</div>
+    </div>
+
+    <div class="scroll-screen" style="padding:0">
+
+      <!-- ── HOW TO USE ── -->
+      <div id="helpTab-howto" class="help-tab-content" style="padding:0 0 20px">
+
+        <!-- Hero banner -->
+        <div class="help-hero">
+          <div class="help-hero-emoji">🚗</div>
+          <div class="help-hero-title">Добро пожаловать в Тачикпуть!</div>
+          <div class="help-hero-sub">Быстро. Удобно. Безопасно.</div>
+        </div>
+
+        <!-- Guide steps -->
+        <div style="padding:0 14px">
+          <div class="help-section-title"><i class="fas fa-user-plus"></i> Для пассажира</div>
+
+          <div class="guide-step" onclick="toggleGuideStep(this)">
+            <div class="guide-step-head">
+              <div class="guide-step-num">1</div>
+              <div class="guide-step-info">
+                <div class="guide-step-title">Найдите поездку</div>
+                <div class="guide-step-sub">Введите адреса и нажмите «Найти»</div>
+              </div>
+              <i class="fas fa-chevron-down guide-step-arrow"></i>
+            </div>
+            <div class="guide-step-body">
+              <!-- Animated mock UI -->
+              <div class="guide-mock">
+                <div class="mock-input animated-typing">
+                  <i class="fas fa-map-marker-alt" style="color:var(--green);margin-right:6px"></i>
+                  <span class="typing-text" data-text="Душанбе, Рынок Корвон"></span>
+                </div>
+                <div class="mock-input" style="margin-top:6px;border-color:var(--amber)">
+                  <i class="fas fa-flag-checkered" style="color:var(--amber);margin-right:6px"></i>
+                  <span class="typing-text2" data-text="Худжанд, Автовокзал"></span>
+                </div>
+                <div class="mock-btn">
+                  <i class="fas fa-search"></i> Найти поездку
+                </div>
+              </div>
+              <p class="guide-tip">💡 Можно ввести полный адрес с улицей и домом, например: <b>Ашт Понгоз улица Шахак дом 176</b></p>
+            </div>
+          </div>
+
+          <div class="guide-step" onclick="toggleGuideStep(this)">
+            <div class="guide-step-head">
+              <div class="guide-step-num">2</div>
+              <div class="guide-step-info">
+                <div class="guide-step-title">Выберите водителя</div>
+                <div class="guide-step-sub">Смотрите рейтинг, цену, тип машины</div>
+              </div>
+              <i class="fas fa-chevron-down guide-step-arrow"></i>
+            </div>
+            <div class="guide-step-body">
+              <div class="guide-mock">
+                <div class="mock-card">
+                  <div class="mock-ava" style="background:#10b981">А</div>
+                  <div style="flex:1">
+                    <div style="font-weight:700;font-size:13px">Алишер Назаров</div>
+                    <div style="font-size:11px;color:#64748b">Hyundai Sonata · 3 места</div>
+                  </div>
+                  <div style="text-align:right">
+                    <div style="font-size:16px;font-weight:900;color:#10b981">120 сом</div>
+                    <div style="font-size:10px;color:#f59e0b">⭐ 4.9</div>
+                  </div>
+                </div>
+                <div class="mock-card" style="border-color:var(--border);opacity:.6">
+                  <div class="mock-ava" style="background:#2563eb">М</div>
+                  <div style="flex:1">
+                    <div style="font-weight:700;font-size:13px">Муродали</div>
+                    <div style="font-size:11px;color:#64748b">Toyota Camry · 2 места</div>
+                  </div>
+                  <div style="text-align:right">
+                    <div style="font-size:16px;font-weight:900;color:#10b981">150 сом</div>
+                    <div style="font-size:10px;color:#f59e0b">⭐ 4.7</div>
+                  </div>
+                </div>
+              </div>
+              <p class="guide-tip">💡 Выбирайте водителей с высоким рейтингом (выше 4.5 ⭐) для лучшего опыта</p>
+            </div>
+          </div>
+
+          <div class="guide-step" onclick="toggleGuideStep(this)">
+            <div class="guide-step-head">
+              <div class="guide-step-num">3</div>
+              <div class="guide-step-info">
+                <div class="guide-step-title">Забронируйте и платите</div>
+                <div class="guide-step-sub">Наличными или картой</div>
+              </div>
+              <i class="fas fa-chevron-down guide-step-arrow"></i>
+            </div>
+            <div class="guide-step-body">
+              <div class="guide-mock">
+                <div style="display:flex;gap:8px;margin-bottom:8px">
+                  <div class="mock-pay-btn active"><i class="fas fa-money-bill-wave" style="color:#10b981"></i><span>Наличные</span></div>
+                  <div class="mock-pay-btn"><i class="fas fa-credit-card" style="color:#2563eb"></i><span>Карта</span></div>
+                </div>
+                <div style="background:#f0fdf4;border-radius:10px;padding:10px;font-size:12px">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:#64748b">Поездка</span><span style="font-weight:700">120 сом</span></div>
+                  <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:#64748b">Комиссия (5%)</span><span style="font-weight:700;color:#2563eb">+6 сом</span></div>
+                  <div style="display:flex;justify-content:space-between;border-top:1px solid #d1fae5;padding-top:6px;margin-top:4px"><span style="font-weight:800">Итого</span><span style="font-weight:900;font-size:16px;color:#10b981">126 сом</span></div>
+                </div>
+              </div>
+              <p class="guide-tip">✅ После бронирования — код подтверждения приходит сразу. Водитель свяжется с вами через чат.</p>
+            </div>
+          </div>
+
+          <!-- Divider -->
+          <div class="help-section-title" style="margin-top:18px"><i class="fas fa-car"></i> Для водителя</div>
+
+          <div class="guide-step" onclick="toggleGuideStep(this)">
+            <div class="guide-step-head">
+              <div class="guide-step-num">1</div>
+              <div class="guide-step-info">
+                <div class="guide-step-title">Добавьте поездку</div>
+                <div class="guide-step-sub">Нажмите «+» в нижнем меню</div>
+              </div>
+              <i class="fas fa-chevron-down guide-step-arrow"></i>
+            </div>
+            <div class="guide-step-body">
+              <div class="guide-mock">
+                <!-- animated route line -->
+                <div class="mock-route-anim">
+                  <div class="route-dot green"></div>
+                  <div class="route-line"></div>
+                  <div class="route-dot amber"></div>
+                  <div style="flex:1;padding-left:12px">
+                    <div style="font-size:12px;font-weight:700;margin-bottom:14px">Душанбе → Худжанд</div>
+                    <div style="font-size:11px;color:#64748b">Дата: завтра · 08:00</div>
+                  </div>
+                </div>
+              </div>
+              <p class="guide-tip">💡 Указывайте точный адрес отправления — так пассажиры быстрее найдут вас</p>
+            </div>
+          </div>
+
+          <div class="guide-step" onclick="toggleGuideStep(this)">
+            <div class="guide-step-head">
+              <div class="guide-step-num">2</div>
+              <div class="guide-step-info">
+                <div class="guide-step-title">Получайте брони</div>
+                <div class="guide-step-sub">Уведомление в чат при каждой броне</div>
+              </div>
+              <i class="fas fa-chevron-down guide-step-arrow"></i>
+            </div>
+            <div class="guide-step-body">
+              <div class="guide-mock">
+                <div class="mock-chat-msg system">🔔 НОВАЯ БРОНЬ TCH-12345<br>Рустам Давлатов (+992 901 234 56)<br>🧑 Место · 💰 126 сом · Наличные</div>
+              </div>
+              <p class="guide-tip">💡 Отвечайте пассажирам быстро — это повышает ваш рейтинг!</p>
+            </div>
+          </div>
+
+          <!-- How map works -->
+          <div class="help-section-title" style="margin-top:18px"><i class="fas fa-map-marked-alt"></i> Работа с картой</div>
+          <div class="help-map-tip-card">
+            <div class="map-tip-row">
+              <div class="map-tip-icon">👆</div>
+              <div><b>Долгое нажатие</b> на карту — ставит точку и определяет адрес автоматически</div>
+            </div>
+            <div class="map-tip-row">
+              <div class="map-tip-icon">📍</div>
+              <div>Кнопка <b>«На карте»</b> рядом с полем — открывает карту для точного выбора места</div>
+            </div>
+            <div class="map-tip-row">
+              <div class="map-tip-icon">🎯</div>
+              <div>Кнопка геолокации — определяет <b>ваше текущее место</b> автоматически</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── FAQ ── -->
+      <div id="helpTab-faq" class="help-tab-content" style="display:none;padding:14px 14px 20px">
+        <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)"><i class="fas fa-question-circle" style="color:var(--green);margin-right:8px"></i>Как заказать поездку?</div>
+          <div class="faq-a"><div class="faq-a-inner">Введите <b>«Откуда»</b> и <b>«Куда»</b>, нажмите «Найти поездку». Выберите водителя по рейтингу и цене. Нажмите «Забронировать». Готово — ждите водителя!</div></div></div>
+
+        <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)"><i class="fas fa-question-circle" style="color:var(--green);margin-right:8px"></i>Как предложить поездку?</div>
+          <div class="faq-a"><div class="faq-a-inner">Нажмите <b>«+»</b> внизу экрана. Заполните маршрут, дату, время, количество мест. Система сама предложит цену. Разместите — и принимайте брони!</div></div></div>
+
+        <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)"><i class="fas fa-question-circle" style="color:var(--green);margin-right:8px"></i>Способы оплаты</div>
+          <div class="faq-a"><div class="faq-a-inner">
+            <div class="faq-pay-row"><i class="fas fa-money-bill-wave" style="color:var(--green)"></i> <b>Наличные</b> — при поездке водителю</div>
+            <div class="faq-pay-row"><i class="fas fa-credit-card" style="color:var(--blue)"></i> <b>Карта</b> — безопасно, онлайн</div>
+          </div></div></div>
+
+        <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)"><i class="fas fa-question-circle" style="color:var(--green);margin-right:8px"></i>Что если водитель отменил?</div>
+          <div class="faq-a"><div class="faq-a-inner">При оплате картой деньги <b>возвращаются автоматически</b> в течение 1-3 рабочих дней. При наличных оплата не была произведена. Вы можете выбрать другого водителя.</div></div></div>
+
+        <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)"><i class="fas fa-question-circle" style="color:var(--green);margin-right:8px"></i>Как стать водителем?</div>
+          <div class="faq-a"><div class="faq-a-inner">Зайдите в <b>Профиль → Стать водителем</b>. Загрузите фото паспорта и машины. Заявка проверяется за <b>24 часа</b>. После одобрения начните зарабатывать!</div></div></div>
+
+        <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)"><i class="fas fa-question-circle" style="color:var(--green);margin-right:8px"></i>Что если адрес не найден?</div>
+          <div class="faq-a"><div class="faq-a-inner">Нажмите кнопку 📍 рядом с полем адреса — откроется карта. Нажмите на нужное место — адрес определится автоматически. Маркер можно <b>перетащить</b> для точности.</div></div></div>
+
+        <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)"><i class="fas fa-question-circle" style="color:var(--green);margin-right:8px"></i>Как работает рейтинг?</div>
+          <div class="faq-a"><div class="faq-a-inner">После каждой поездки пассажир ставит оценку от 1 до 5 звёзд. Рейтинг — среднее всех оценок. Водители с рейтингом <b>выше 4.5 ⭐</b> получают больше поездок.</div></div></div>
+      </div>
+
+      <!-- ── SAFETY ── -->
+      <div id="helpTab-safety" class="help-tab-content" style="display:none;padding:14px 14px 20px">
+
+        <div class="safety-hero">
+          <div style="font-size:3rem">🛡</div>
+          <div class="safety-hero-title">Ваша безопасность — наш приоритет</div>
+        </div>
+
+        <div class="safety-card green">
+          <div class="safety-card-icon"><i class="fas fa-id-badge"></i></div>
+          <div class="safety-card-body">
+            <div class="safety-card-title">Верифицированные водители</div>
+            <div class="safety-card-text">Каждый водитель проверяется вручную. Паспорт, права, фото машины — всё проверяется перед допуском.</div>
+          </div>
+        </div>
+
+        <div class="safety-card blue">
+          <div class="safety-card-icon"><i class="fas fa-map-marker-alt"></i></div>
+          <div class="safety-card-body">
+            <div class="safety-card-title">GPS отслеживание</div>
+            <div class="safety-card-text">Местоположение поездки фиксируется. Вы можете поделиться маршрутом с близкими через чат.</div>
+          </div>
+        </div>
+
+        <div class="safety-card amber">
+          <div class="safety-card-icon"><i class="fas fa-star"></i></div>
+          <div class="safety-card-body">
+            <div class="safety-card-title">Система рейтингов</div>
+            <div class="safety-card-text">Пассажиры оценивают водителей после каждой поездки. Водители с низким рейтингом отстраняются.</div>
+          </div>
+        </div>
+
+        <div class="safety-card red">
+          <div class="safety-card-icon"><i class="fas fa-phone-alt"></i></div>
+          <div class="safety-card-body">
+            <div class="safety-card-title">Экстренная связь</div>
+            <div class="safety-card-text">В случае опасности немедленно звоните <b>112</b>. Служба поддержки Тачикпуть доступна 24/7.</div>
+          </div>
+        </div>
+
+        <div class="safety-tips-box">
+          <div class="safety-tips-title">📋 Советы безопасной поездки</div>
+          <div class="safety-tip-item"><i class="fas fa-check-circle" style="color:var(--green)"></i> Проверьте номер машины перед посадкой</div>
+          <div class="safety-tip-item"><i class="fas fa-check-circle" style="color:var(--green)"></i> Сообщите близким маршрут и номер брони</div>
+          <div class="safety-tip-item"><i class="fas fa-check-circle" style="color:var(--green)"></i> Не давайте личные данные водителю</div>
+          <div class="safety-tip-item"><i class="fas fa-check-circle" style="color:var(--green)"></i> Пристегните ремень безопасности</div>
+          <div class="safety-tip-item"><i class="fas fa-check-circle" style="color:var(--green)"></i> Оцените поездку после прибытия</div>
+        </div>
+      </div>
+
+      <!-- ── SUPPORT ── -->
+      <div id="helpTab-support" class="help-tab-content" style="display:none;padding:14px 14px 20px">
+
+        <div class="support-chat-box">
+          <div class="support-chat-head">
+            <div class="support-ava"><i class="fas fa-headset"></i></div>
+            <div>
+              <div style="font-weight:700;font-size:13px">Поддержка Тачикпуть</div>
+              <div style="font-size:11px;color:var(--green);display:flex;align-items:center;gap:4px"><div class="sync-dot"></div>Онлайн</div>
+            </div>
+          </div>
+          <div class="support-chat-msgs" id="supportChatMsgs">
+            <div class="sup-msg bot">👋 Привет! Я помогу решить любой вопрос. Напишите свой вопрос или выберите тему ниже.</div>
+          </div>
+          <div class="support-quick-btns" id="supportQuickBtns">
+            <button onclick="supportQuick('Не могу найти поездку')">🔍 Не найду поездку</button>
+            <button onclick="supportQuick('Проблема с оплатой')">💳 Оплата</button>
+            <button onclick="supportQuick('Водитель не приехал')">🚗 Водитель не приехал</button>
+            <button onclick="supportQuick('Хочу стать водителем')">🧑‍✈️ Стать водителем</button>
+          </div>
+          <div class="support-input-row">
+            <input class="support-input" id="supportInput" placeholder="Написать в поддержку..." onkeypress="if(event.key==='Enter')sendSupportMsg()">
+            <button class="support-send" onclick="sendSupportMsg()"><i class="fas fa-paper-plane"></i></button>
+          </div>
+        </div>
+
+        <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px">
+          <button class="submit-btn" style="background:#0088cc;display:flex;align-items:center;justify-content:center;gap:8px" onclick="showToast('Открываем Telegram...','ok')">
+            <i class="fab fa-telegram" style="font-size:18px"></i> Telegram: @tachikput_support
+          </button>
+          <button class="submit-btn" style="background:#25D366;display:flex;align-items:center;justify-content:center;gap:8px" onclick="showToast('Открываем WhatsApp...','ok')">
+            <i class="fab fa-whatsapp" style="font-size:18px"></i> WhatsApp: +992 900 000 000
+          </button>
+          <button class="submit-btn" style="background:var(--text);display:flex;align-items:center;justify-content:center;gap:8px" onclick="showToast('Звоним...','ok')">
+            <i class="fas fa-phone" style="font-size:16px"></i> Позвонить: +992 44 600 0000
+          </button>
+        </div>
+
+        <div style="text-align:center;padding:16px 0 0;font-size:11px;color:var(--subtle)">
+          Время работы: 08:00 – 22:00 по Душанбе<br>
+          © 2024 Тачикпуть · Версия 2.1.0
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════
+       АДМИН-ПАНЕЛЬ
+  ════════════════════════════════════ -->
+  <div id="screen-admin" class="screen">
+    <div class="header">
+      <button class="icon-btn" onclick="switchTab('profile')"><i class="fas fa-arrow-left"></i></button>
+      <div class="logo"><i class="fas fa-chart-line"></i> Админ</div>
+      <button class="icon-btn" onclick="loadAdminData()"><i class="fas fa-sync"></i></button>
+    </div>
+    <div class="tabs-row">
+      <div class="tab-link active" data-admintab="stats" onclick="switchAdminTab(this,'stats')">Статистика</div>
+      <div class="tab-link" data-admintab="users" onclick="switchAdminTab(this,'users')">Пользователи</div>
+      <div class="tab-link" data-admintab="trips" onclick="switchAdminTab(this,'trips')">Поездки</div>
+    </div>
+    <div class="scroll-screen">
+      <div id="adminStatsTab">
+        <div class="admin-stats">
+          <div class="admin-stat-card"><div class="admin-stat-v" id="adm-users">0</div><div class="admin-stat-l">👥 Пользователи</div></div>
+          <div class="admin-stat-card"><div class="admin-stat-v" id="adm-trips">0</div><div class="admin-stat-l">🚗 Поездки</div></div>
+          <div class="admin-stat-card"><div class="admin-stat-v" id="adm-bookings">0</div><div class="admin-stat-l">📦 Брони</div></div>
+          <div class="admin-stat-card"><div class="admin-stat-v" id="adm-revenue">0</div><div class="admin-stat-l">💰 Комиссия (сом)</div></div>
+        </div>
+      </div>
+      <div id="adminUsersTab" style="display:none"><div style="padding:14px" id="adminUsersList"></div></div>
+      <div id="adminTripsTab" style="display:none"><div style="padding:14px" id="adminTripsList"></div></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════
+       MAP PICKER OVERLAY
+  ════════════════════════════════════ -->
+  <div class="map-picker-overlay" id="mapPickerOverlay">
+    <div class="map-picker-header">
+      <button class="map-picker-close" onclick="closeMapPicker()"><i class="fas fa-times"></i></button>
+      <h3>Выберите место</h3>
+      <button class="icon-btn" onclick="centerOnMyLocation()" title="Моя локация"><i class="fas fa-location-arrow"></i></button>
+    </div>
+    <div style="position:relative;flex:1">
+      <div id="mapPicker"></div>
+      <div class="map-picker-info" id="mapPickerInfo">
+        <i class="fas fa-info-circle" style="color:var(--green);margin-right:4px"></i>
+        Нажмите на карту чтобы поставить точку
+      </div>
+    </div>
+    <div class="map-picker-actions">
+      <button class="modal-btn ghost" onclick="closeMapPicker()">Отмена</button>
+      <button class="modal-btn primary" onclick="confirmMapPicker()" id="confirmPickerBtn" disabled>Подтвердить</button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════
+       NAVBAR
+  ════════════════════════════════════ -->
+  <div class="navbar">
+    <div class="nav-item active" data-screen="home" onclick="switchTab('home')">
+      <i class="fas fa-home"></i>Главная
+    </div>
+    <div class="nav-item" data-screen="trips" onclick="switchTab('trips')">
+      <i class="fas fa-car"></i>Поездки
+      <span class="nav-badge" id="navBadgeTrips" style="display:none">0</span>
+    </div>
+    <div class="nav-item central" data-screen="offer" onclick="switchTab('offer')">
+      <i class="fas fa-plus"></i>
+    </div>
+    <div class="nav-item" data-screen="profile" onclick="switchTab('profile')">
+      <i class="fas fa-user"></i>Профиль
+    </div>
+    <div class="nav-item" data-screen="help" onclick="switchTab('help')">
+      <i class="fas fa-question"></i>Помощь
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════
+       MODAL: AUTH
+  ════════════════════════════════════ -->
+  <div class="modal-bg" id="authModal">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-handle"></div>
+      <div class="modal-head">
+        <div>
+          <div class="modal-title" id="authModalTitle">Вход в Тачикпуть</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Введите номер телефона</div>
+        </div>
+        <button class="modal-close" onclick="closeAuthModal()"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div id="authPhoneStep">
+          <div class="form-group">
+            <label class="form-label">Номер телефона</label>
+            <input class="form-input" type="tel" id="authPhone" placeholder="+992XXXXXXXXX" autocomplete="tel" maxlength="13" oninput="this.value=this.value.replace(/[^+0-9]/g,'').substring(0,13)">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Ваше имя</label>
+            <input class="form-input" type="text" id="authName" placeholder="Как к вам обращаться">
+          </div>
+          <button class="submit-btn green" onclick="sendSmsCode()">
+            <i class="fas fa-sms"></i> Получить SMS-код
+          </button>
+        </div>
+        <div id="authSmsStep" style="display:none">
+          <p style="text-align:center;font-size:13px;color:var(--text);margin-bottom:6px">
+            Код отправлен на <b id="smsPhoneDisplay">+992 ...</b>
+          </p>
+          <div class="sms-hint">Тестовый режим — введите код: <b>0000</b></div>
+          <div class="sms-code-row">
+            <input class="sms-code-input" type="text" maxlength="1" inputmode="numeric" id="sms1" oninput="smsAutoNext(this,2)">
+            <input class="sms-code-input" type="text" maxlength="1" inputmode="numeric" id="sms2" oninput="smsAutoNext(this,3)">
+            <input class="sms-code-input" type="text" maxlength="1" inputmode="numeric" id="sms3" oninput="smsAutoNext(this,4)">
+            <input class="sms-code-input" type="text" maxlength="1" inputmode="numeric" id="sms4" oninput="smsAutoNext(this,5)">
+          </div>
+          <button class="submit-btn green" onclick="verifySmsCode()">
+            <i class="fas fa-check"></i> Подтвердить
+          </button>
+          <button class="resend-btn" onclick="backToPhone()" style="display:block;margin:8px auto 0">← Изменить номер</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════
+       MODAL: BOOKING
+  ════════════════════════════════════ -->
+  <div class="modal-bg" id="bookModal">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-handle"></div>
+      <div id="bookForm">
+        <div class="modal-head">
+          <div>
+            <div class="modal-title">Бронирование</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px">Подтвердите детали</div>
+          </div>
+          <button class="modal-close" onclick="closeBookModal()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+          <div class="my-trip-card" id="bsCard" style="margin-bottom:14px">
+            <div class="my-trip-top">
+              <div class="my-trip-ava" id="bsAva" style="background:var(--green)">А</div>
+              <div class="my-trip-info">
+                <div class="my-trip-route" id="bsName">Али</div>
+                <div class="my-trip-meta" id="bsMeta">Hyundai Elantra · Душанбе → Худжанд</div>
+              </div>
+              <div class="trip-card-rating" id="bsRating">⭐ 4.8</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Что бронируем?</label>
+            <div class="parcel-grid" style="grid-template-columns:1fr 1fr">
+              <button class="option-btn active" id="optPassenger" onclick="setBookType('passenger')">
+                <i class="fas fa-user"></i>Место
+                <div class="option-sub">Я еду сам</div>
+              </button>
+              <button class="option-btn" id="optParcel" onclick="setBookType('parcel')">
+                <i class="fas fa-box"></i>Посылка
+                <div class="option-sub">Только груз</div>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group" id="parcelSizeBlock" style="display:none">
+            <label class="form-label">Размер посылки</label>
+            <div class="parcel-grid" style="grid-template-columns:repeat(3,1fr)">
+              <button class="option-btn active" onclick="setBookParcelSize(this,'s')"><i class="fas fa-envelope"></i>Маленькая</button>
+              <button class="option-btn" onclick="setBookParcelSize(this,'m')"><i class="fas fa-box"></i>Средняя</button>
+              <button class="option-btn" onclick="setBookParcelSize(this,'l')"><i class="fas fa-box-open"></i>Большая</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Комментарий</label>
+            <textarea class="form-input" id="bsNote" placeholder="Например: позвоните за 10 мин до приезда" rows="2"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Способ оплаты</label>
+            <div class="parcel-grid" style="grid-template-columns:1fr 1fr">
+              <button class="option-btn active" id="pmCash" onclick="setBookPay('cash')">
+                <i class="fas fa-money-bill-wave"></i>Наличные
+                <div class="option-sub">При поездке</div>
+              </button>
+              <button class="option-btn" id="pmCard" onclick="setBookPay('card')">
+                <i class="fas fa-credit-card"></i>Карта
+                <div class="option-sub">Сейчас</div>
+              </button>
+            </div>
+          </div>
+
+          <div id="cardForm" style="display:none">
+            <div class="form-group">
+              <label class="form-label">Номер карты</label>
+              <input class="form-input" type="text" id="cardNum" placeholder="0000 0000 0000 0000" maxlength="19" oninput="formatCard(this)">
+            </div>
+            <div class="form-row-2">
+              <div class="form-group">
+                <label class="form-label">Срок</label>
+                <input class="form-input" type="text" id="cardExp" placeholder="MM/ГГ" maxlength="5">
+              </div>
+              <div class="form-group">
+                <label class="form-label">CVV</label>
+                <input class="form-input" type="text" id="cardCvv" placeholder="000" maxlength="3">
+              </div>
+            </div>
+          </div>
+
+          <div style="padding:11px 13px;background:var(--bg);border-radius:11px;margin-top:10px">
+            <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0">
+              <span style="color:var(--muted)">Поездка</span>
+              <span style="font-weight:700" id="bsCost1">50 сом</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0" id="bsParcelRow">
+              <span style="color:var(--muted)">Посылка</span>
+              <span style="font-weight:700" id="bsCost2">+5 сом</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0">
+              <span style="color:var(--muted)">Комиссия Тачикпуть (5%)</span>
+              <span style="font-weight:700;color:var(--blue)" id="bsCommission">+3 сом</span>
+            </div>
+            <div style="border-top:1px solid var(--border);margin-top:7px;padding-top:7px;display:flex;justify-content:space-between;align-items:center">
+              <span style="font-weight:700">К оплате</span>
+              <span style="font-size:18px;font-weight:900;color:var(--green)" id="bsTotal">58 сом</span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="modal-btn ghost" onclick="closeBookModal()">Отмена</button>
+          <button class="modal-btn primary" id="confirmBookBtn" onclick="confirmBooking()">Забронировать</button>
+        </div>
+      </div>
+
+      <div id="bookSuccess" style="display:none">
+        <div class="success-modal">
+          <div class="success-icon"><i class="fas fa-check"></i></div>
+          <div class="success-title">Бронь подтверждена!</div>
+          <div class="success-sub">Водитель получил уведомление<br>и свяжется с вами</div>
+          <div class="success-code">
+            <div class="sc-label">Код брони</div>
+            <div class="sc-value" id="successCode">TCH-00000</div>
+          </div>
+          <button class="submit-btn green" onclick="closeBookModal();switchTab('trips')">Мои поездки</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════
+       MODAL: CHAT
+  ════════════════════════════════════ -->
+  <div class="modal-bg" id="chatModal">
+    <div class="modal chat-modal" onclick="event.stopPropagation()">
+      <div class="chat-head-row">
+        <button class="chat-back-btn" onclick="closeChat()"><i class="fas fa-arrow-left"></i></button>
+        <div class="chat-ava" id="chatAva" style="background:var(--green)">А</div>
+        <div class="chat-info">
+          <div class="chat-name" id="chatName">Али</div>
+          <div class="chat-status-text"><div class="sync-dot"></div>В сети</div>
+        </div>
+        <button class="icon-btn" onclick="callDriver()" title="Позвонить"><i class="fas fa-phone" style="color:var(--green)"></i></button>
+      </div>
+      <div class="chat-body" id="chatBody"></div>
+      <div class="attach-menu" id="attachMenu">
+        <button class="attach-opt" onclick="sendGeo()"><i class="fas fa-map-marker-alt"></i>Геолокация</button>
+        <button class="attach-opt" onclick="sendCheck()"><i class="fas fa-receipt"></i>Чек оплаты</button>
+        <button class="attach-opt" onclick="quickMsg('Скоро буду')"><i class="fas fa-comment-dots"></i>«Скоро буду»</button>
+        <button class="attach-opt" onclick="quickMsg('Я на месте')"><i class="fas fa-comment-dots"></i>«Я на месте»</button>
+      </div>
+      <div class="chat-input-row">
+        <button class="chat-attach-btn" onclick="toggleAttach()"><i class="fas fa-plus"></i></button>
+        <input class="chat-input" id="chatInput" placeholder="Сообщение..." onkeypress="if(event.key==='Enter')sendMsg()">
+        <button class="chat-send-btn" onclick="sendMsg()"><i class="fas fa-paper-plane"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════
+       MODAL: RATING
+  ════════════════════════════════════ -->
+  <div class="modal-bg" id="rateModal">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-handle"></div>
+      <div class="modal-head">
+        <div class="modal-title">Оцените поездку</div>
+        <button class="modal-close" onclick="closeRateModal()"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body" style="text-align:center">
+        <div id="rateDriverName" style="font-weight:700;margin-bottom:8px"></div>
+        <div style="display:flex;justify-content:center;gap:8px;margin:14px 0;font-size:32px" id="starsRow">
+          <i class="far fa-star" data-star="1" onclick="setStars(1)"></i>
+          <i class="far fa-star" data-star="2" onclick="setStars(2)"></i>
+          <i class="far fa-star" data-star="3" onclick="setStars(3)"></i>
+          <i class="far fa-star" data-star="4" onclick="setStars(4)"></i>
+          <i class="far fa-star" data-star="5" onclick="setStars(5)"></i>
+        </div>
+        <textarea class="form-input" id="rateComment" placeholder="Ваш отзыв (необязательно)" rows="3"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn ghost" onclick="closeRateModal()">Пропустить</button>
+        <button class="modal-btn primary" onclick="submitRating()">Отправить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════
+       MODAL: COURIER REG
+  ════════════════════════════════════ -->
+  <div class="modal-bg" id="courierModal">
+    <div class="modal" onclick="event.stopPropagation()">
+      <div class="modal-handle"></div>
+      <div class="modal-head">
+        <div>
+          <div class="modal-title">Стать водителем</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Зарабатывайте по пути</div>
+        </div>
+        <button class="modal-close" onclick="closeCourierModal()"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label"><span class="section-num">1</span>Личные данные</label>
+          <input class="form-input" id="crName" placeholder="Полное имя" style="margin-bottom:6px">
+          <input class="form-input" id="crPhone" placeholder="+992 XX XXX XX XX">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label"><span class="section-num">2</span>Фото паспорта</label>
+          <div class="upload-zone" onclick="document.getElementById('crPassport').click()" id="crPassportZone">
+            <i class="fas fa-id-card"></i>
+            <div class="uz-text">Загрузите фото</div>
+            <div class="uz-sub">JPG, PNG</div>
+          </div>
+          <input type="file" id="crPassport" accept="image/*" style="display:none" onchange="handleFileUpload(this,'crPassportZone')">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label"><span class="section-num">3</span>Транспорт</label>
+          <input class="form-input" id="crCar" placeholder="Марка и модель (Hyundai Elantra)" style="margin-bottom:6px">
+          <input class="form-input" id="crPlate" placeholder="Номер: 01 AA 123" style="text-transform:uppercase;margin-bottom:6px">
+          <div class="upload-zone" onclick="document.getElementById('crCarPhoto').click()" id="crCarZone">
+            <i class="fas fa-car"></i>
+            <div class="uz-text">Фото машины</div>
+            <div class="uz-sub">С виден номер</div>
+          </div>
+          <input type="file" id="crCarPhoto" accept="image/*" style="display:none" onchange="handleFileUpload(this,'crCarZone')">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label"><span class="section-num">4</span>Маршруты</label>
+          <textarea class="form-input" id="crRoutes" placeholder="Например: Душанбе - Худжанд, Душанбе - Куляб" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn ghost" onclick="closeCourierModal()">Отмена</button>
+        <button class="modal-btn primary" onclick="submitCourierReg()">Подать заявку</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ════════════════════════════════════════════════
+//  SUPABASE CONFIG
+// ════════════════════════════════════════════════
+const SUPABASE_URL = 'https://dyezfqrzjiyzfrozohqr.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_PcOtl9cDCTwvt27stpYxng_u3_DlBFS';
+const ADMIN_PHONE  = '+992889000507'; // номер администратора
+let sb = null;
+try {
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    db: { schema: 'public' },
+    auth: { persistSession: true, autoRefreshToken: true }
+  });
+} catch (e) { console.error('Supabase init failed', e); }
+
+// Вспомогательная функция — понятное сообщение при ошибке таблицы
+function handleSupabaseError(e, table) {
+  const msg = (e && e.message) || String(e);
+  if (msg.includes('relation') || msg.includes('does not exist') || msg.includes('PGRST106') || msg.includes('42P01') || msg.includes('schema cache')) {
+    return `Таблица "${table}" не создана в Supabase. Создайте таблицу в Dashboard → Table Editor.`;
+  }
+  return 'Ошибка: ' + msg;
+}
+
+// ════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════
+let currentUser = null;
+let allTrips = [];
+let myBookings = [];
+let myDriverTrips = [];
+let allBookings = [];
+let allUsers = [];
+let map = null, mapPicker = null;
+let mapMarkers = [];
+let pickerMarker = null;
+let pickerForInput = null;
+let activeBookTrip = null;
+let activeChatTrip = null;
+let bookType = 'passenger';
+let bookParcelSize = 's';
+let bookPayMethod = 'cash';
+let activeVehicleFilter = 'any';
+let activeOfferVehicle = 'car';
+let activeParcelSize = 'small';
+let activeWeight = 'light';
+let seats = 2;
+let searchPerformed = false;
+let chatSub = null;
+let tripsSub = null;
+let bookingsSub = null;
+let rateStars = 0;
+let rateBookingId = null;
+
+// ════════════════════════════════════════════════
+//  XSS HELPER
+// ════════════════════════════════════════════════
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ════════════════════════════════════════════════
+//  TOAST
+// ════════════════════════════════════════════════
+function showToast(msg, type='') {
+  const w = document.getElementById('toastWrap');
+  const t = document.createElement('div');
+  t.className = 'toast' + (type ? ' '+type : '');
+  t.textContent = msg;
+  w.appendChild(t);
+  setTimeout(() => t.remove(), 3300);
+}
+
+// ════════════════════════════════════════════════
+//  ADDRESSES DB (Таджикистан)
+// ════════════════════════════════════════════════
+const ADDRESSES = [
+  // Major cities with coordinates
+  {name:'Душанбе', type:'city', icon:'🏙', sub:'Столица', lat:38.5598, lng:68.7870},
+  {name:'Худжанд', type:'city', icon:'🏙', sub:'Согд', lat:40.2829, lng:69.6210},
+  {name:'Куляб', type:'city', icon:'🏙', sub:'Хатлон', lat:37.9145, lng:69.7836},
+  {name:'Кулоб', type:'city', icon:'🏙', sub:'Хатлон', lat:37.9145, lng:69.7836},
+  {name:'Бохтар', type:'city', icon:'🏙', sub:'Хатлон', lat:37.8378, lng:68.7800},
+  {name:'Истаравшан', type:'city', icon:'🏙', sub:'Согд', lat:39.9119, lng:68.9979},
+  {name:'Канибадам', type:'city', icon:'🏙', sub:'Согд', lat:40.2860, lng:70.4174},
+  {name:'Исфара', type:'city', icon:'🏙', sub:'Согд', lat:40.1257, lng:70.6231},
+  {name:'Турсунзода', type:'city', icon:'🏙', sub:'РРП', lat:38.5108, lng:68.2294},
+  {name:'Хорог', type:'city', icon:'⛰', sub:'ГБАО', lat:37.4889, lng:71.5511},
+  {name:'Пенджикент', type:'city', icon:'🏙', sub:'Согд', lat:39.4953, lng:67.6105},
+  {name:'Хисор', type:'city', icon:'🏙', sub:'РРП', lat:38.5236, lng:68.5358},
+  {name:'Вахдат', type:'city', icon:'🏙', sub:'РРП', lat:38.5667, lng:69.0167},
+  {name:'Рогун', type:'city', icon:'⛰', sub:'РРП', lat:38.7167, lng:69.7167},
+  {name:'Гафуров', type:'city', icon:'🏘', sub:'Согд', lat:40.2156, lng:69.7839},
+  {name:'Ашт', type:'city', icon:'🏘', sub:'Согд', lat:40.6633, lng:70.3389},
+  // Кишлаки Аштского района
+  {name:'Ашт Понгоз', type:'village', icon:'🏡', sub:'Аштский район, Согд', lat:40.6750, lng:70.3520},
+  {name:'Ашт Нов', type:'village', icon:'🏡', sub:'Аштский район, Согд', lat:40.6700, lng:70.3400},
+  {name:'Ашт Хоча', type:'village', icon:'🏡', sub:'Аштский район, Согд', lat:40.6580, lng:70.3300},
+  {name:'Ашт Калъаи Болo', type:'village', icon:'🏡', sub:'Аштский район, Согд', lat:40.6900, lng:70.3600},
+  // Districts
+  {name:'Варзоб', type:'district', icon:'🏘', sub:'РРП', lat:38.7833, lng:68.7833},
+  {name:'Рудаки', type:'district', icon:'🏘', sub:'РРП', lat:38.4500, lng:68.8000},
+  {name:'Файзабад', type:'district', icon:'🏘', sub:'РРП', lat:38.5500, lng:69.3500},
+  {name:'Шохмансур', type:'district', icon:'🏘', sub:'Душанбе', lat:38.5800, lng:68.7900},
+  {name:'Фирдавси', type:'district', icon:'🏘', sub:'Душанбе', lat:38.5500, lng:68.7600},
+  {name:'Сино', type:'district', icon:'🏘', sub:'Душанбе', lat:38.5700, lng:68.8000},
+  {name:'Чорбог', type:'district', icon:'🏘', sub:'Душанбе', lat:38.5650, lng:68.7950},
+  // Places
+  {name:'Душанбе, Рынок Корвон', type:'place', icon:'🏪', sub:'Душанбе', lat:38.5798, lng:68.8070},
+  {name:'Душанбе, Аэропорт', type:'place', icon:'✈', sub:'Душанбе', lat:38.5430, lng:68.8243},
+  {name:'Душанбе, Автовокзал', type:'place', icon:'🚌', sub:'Душанбе', lat:38.5650, lng:68.7700},
+  {name:'Худжанд, Рынок Панчшанбе', type:'place', icon:'🏪', sub:'Худжанд', lat:40.2829, lng:69.6310},
+  {name:'Худжанд, Автовокзал', type:'place', icon:'🚌', sub:'Худжанд', lat:40.2700, lng:69.6300},
+];
+
+const POPULAR = ['Душанбе','Худжанд','Куляб','Бохтар','Исфара'];
+
+// ════════════════════════════════════════════════
+//  ADDRESS SEARCH — полная перезапись
+// ════════════════════════════════════════════════
+
+// Координаты выбранных точек
+window._addrCoords  = { from: null, to: null };
+window._markerFrom  = null;
+window._markerTo    = null;
+window._routeLine   = null;
+const _debounce     = {};
+
+// Убрать маркер и линию при новом вводе
+function clearAddrCoord(side) {
+  if (!window._addrCoords) return;
+  window._addrCoords[side] = null;
+  if (side === 'from' && window._markerFrom && map) { map.removeLayer(window._markerFrom); window._markerFrom = null; }
+  if (side === 'to'   && window._markerTo   && map) { map.removeLayer(window._markerTo);   window._markerTo = null; }
+  if (window._routeLine && map) { map.removeLayer(window._routeLine); window._routeLine = null; }
+}
+
+// Подсвечиваем совпадение в тексте
+function highlightMatch(text, q) {
+  if (!q) return esc(text);
+  const idx = text.toLowerCase().indexOf(q.toLowerCase());
+  if (idx === -1) return esc(text);
+  return esc(text.slice(0, idx))
+    + '<mark style="background:transparent;color:var(--green);font-weight:800">'
+    + esc(text.slice(idx, idx + q.length))
+    + '</mark>'
+    + esc(text.slice(idx + q.length));
+}
+
+// Форматируем адрес из Nominatim: Город Район улица дом
+function formatNominatimAddress(data) {
+  if (!data) return '';
+  const a = data.address || {};
+  const parts = [];
+  const city = a.city || a.town || a.village || a.municipality || a.county || '';
+  if (city) parts.push(city);
+  const sub = a.suburb || a.neighbourhood || a.hamlet || a.locality || '';
+  if (sub && sub !== city) parts.push(sub);
+  const street = a.road || a.pedestrian || a.footway || '';
+  if (street) parts.push(/улиц|кӯч|kocha|street/i.test(street) ? street : 'улица ' + street);
+  if (a.house_number) parts.push('дом ' + a.house_number);
+  return parts.join(' ') || data.display_name || '';
+}
+
+// Строим один элемент подсказки
+function makeSuggItem(label, sub, suggId, inpId, lat, lng, iconColor) {
+  const ic = iconColor || 'var(--green)';
+  return `<div class="suggestion-item" onclick="selectSugAddress(${JSON.stringify(label)},'${suggId}','${inpId}',${lat},${lng})">
+    <i class="fas fa-map-marker-alt suggestion-icon" style="color:${ic}"></i>
+    <div class="suggestion-text">
+      <div class="suggestion-name">${label}</div>
+      <div class="suggestion-sub">${esc(sub||'')}</div>
+    </div>
+  </div>`;
+}
+
+// Главная функция поиска
+async function handleAddressSearch(query, suggId, inpId) {
+  const sug = document.getElementById(suggId);
+  if (!sug) return;
+  const q = (query || '').trim();
+
+  // Пустой запрос — показываем популярные города
+  if (!q) {
+    let html = '<div style="padding:8px 12px;font-size:9px;font-weight:700;color:var(--subtle);text-transform:uppercase;letter-spacing:.5px">Популярные города</div>';
+    POPULAR.forEach(name => {
+      const a = ADDRESSES.find(x => x.name === name);
+      if (a) html += makeSuggItem(a.name, a.sub, suggId, inpId, a.lat, a.lng);
+    });
+    sug.innerHTML = html;
+    sug.classList.add('show');
+    return;
+  }
+
+  // Мгновенный результат из локального списка
+  const local = ADDRESSES.filter(a => a.name.toLowerCase().includes(q.toLowerCase()));
+  let html = '';
+  if (local.length > 0) {
+    html = local.slice(0, 5).map(a => makeSuggItem(a.name, a.sub, suggId, inpId, a.lat, a.lng, 'var(--green)')).join('');
+    html += '<div style="padding:5px 12px;font-size:9px;color:var(--subtle)"><i class="fas fa-spinner fa-spin"></i> Поиск на карте...</div>';
+  } else {
+    html = '<div style="padding:10px 14px;font-size:12px;color:var(--muted)"><i class="fas fa-spinner fa-spin"></i> Ищем адрес...</div>';
+  }
+  sug.innerHTML = html;
+  sug.classList.add('show');
+
+  // Debounce → Nominatim
+  clearTimeout(_debounce[suggId]);
+  _debounce[suggId] = setTimeout(async () => {
+    try {
+      const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2'
+        + '&q=' + encodeURIComponent(q + ' Таджикистан')
+        + '&addressdetails=1&limit=8&accept-language=ru&countrycodes=tj';
+      const res = await fetch(url);
+      const data = await res.json();
+
+      let out = local.slice(0, 3).map(a => makeSuggItem(a.name, a.sub, suggId, inpId, a.lat, a.lng, 'var(--green)')).join('');
+
+      if (data && data.length > 0) {
+        if (local.length > 0) out += '<div style="padding:4px 12px;font-size:9px;font-weight:700;color:var(--subtle);text-transform:uppercase">С карты</div>';
+        data.forEach(r => {
+          const addr = formatNominatimAddress(r);
+          if (!addr) return;
+          const stateName = (r.address && (r.address.state || r.address.county)) || '';
+          out += makeSuggItem(addr, stateName, suggId, inpId, r.lat, r.lon, 'var(--blue)');
+        });
+      }
+
+      if (!out) out = '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px">Не найдено. Выберите точку на карте 📍</div>';
+      sug.innerHTML = out;
+      sug.classList.add('show');
+    } catch (_) {
+      if (local.length === 0) sug.innerHTML = '<div style="padding:14px;text-align:center;color:var(--muted);font-size:12px">Нет соединения. Выберите точку 📍</div>';
+    }
+  }, 450);
+}
+
+// Выбор адреса — ставит маркер, приближает карту, рисует маршрут
+function selectSugAddress(name, suggId, inpId, lat, lng) {
+  // 1. Записываем в поле
+  const inp = document.getElementById(inpId);
+  if (inp) inp.value = name;
+
+  // 2. Скрываем список
+  const sug = document.getElementById(suggId);
+  if (sug) sug.classList.remove('show');
+
+  if (!lat || !lng) return;
+  const latF = parseFloat(lat), lngF = parseFloat(lng);
+  if (isNaN(latF) || isNaN(lngF)) return;
+
+  // Если карта ещё не инициализирована — инициализируем сейчас
+  if (!map) initMap();
+  // Ещё раз проверяем, если initMap не сработал по какой-то причине
+  if (!map) {
+    setTimeout(() => selectSugAddress(name, suggId, inpId, lat, lng), 300);
+    return;
+  }
+
+  // 3. Определяем: это «Откуда» или «Куда»
+  const isFrom = (inpId === 'searchFrom' || inpId === 'offerFrom');
+
+  // 4. Иконки
+  const mkIcon = color => L.divIcon({
+    html: `<div style="width:18px;height:18px;background:${color};border-radius:50%;border:3px solid #fff;box-shadow:0 2px 10px ${color}88"></div>`,
+    className: '', iconSize: [18, 18], iconAnchor: [9, 9]
+  });
+  if (isFrom) {
+    if (window._markerFrom) map.removeLayer(window._markerFrom);
+    window._markerFrom = L.marker([latF, lngF], { icon: mkIcon('#10b981') })
+      .bindPopup('<b>📍 Откуда</b><br>' + name).addTo(map);
+    window._addrCoords.from = [latF, lngF];
+  } else {
+    if (window._markerTo) map.removeLayer(window._markerTo);
+    window._markerTo = L.marker([latF, lngF], { icon: mkIcon('#ef4444') })
+      .bindPopup('<b>🏁 Куда</b><br>' + name).addTo(map);
+    window._addrCoords.to = [latF, lngF];
+  }
+
+  // 6. Если обе точки заданы — рисуем линию и fitBounds
+  const c = window._addrCoords;
+  if (c.from && c.to) {
+    if (window._routeLine) map.removeLayer(window._routeLine);
+    window._routeLine = L.polyline([c.from, c.to], {
+      color: '#10b981', weight: 3, opacity: 0.7, dashArray: '8,5'
+    }).addTo(map);
+    map.fitBounds(L.latLngBounds([c.from, c.to]), { padding: [55, 55], maxZoom: 14 });
+  } else {
+    // Одна точка — просто летим к ней
+    map.flyTo([latF, lngF], 13, { duration: 0.8 });
+  }
+
+  // 7. После выбора «Откуда» — автофокус на «Куда»
+  if (isFrom) {
+    const nextId = (inpId === 'searchFrom') ? 'searchTo' : 'offerTo';
+    setTimeout(() => {
+      const next = document.getElementById(nextId);
+      if (next) {
+        next.focus();
+        const nextSugg = (inpId === 'searchFrom') ? 'toHomeSuggestions' : 'toSuggestions';
+        // Also reset coords for next field
+        clearAddrCoord('to');
+        handleAddressSearch('', nextSugg, nextId);
+      }
+    }, 100);
+  }
+}
+
+// Enter key — ждём список если ещё грузится, потом кликаем первый
+function _bindEnter(inpId, suggId) {
+  const inp = document.getElementById(inpId);
+  if (!inp) return;
+  inp.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const tryClick = (attempt) => {
+      const sug = document.getElementById(suggId);
+      const first = sug && sug.querySelector('.suggestion-item');
+      if (first) {
+        first.click();
+      } else if (attempt < 8) {
+        // Список ещё грузится — ждём 200мс
+        setTimeout(() => tryClick(attempt + 1), 200);
+      }
+    };
+    tryClick(0);
+  });
+}
+
+// Подключаем Enter для всех полей после загрузки DOM
+// Привязываем Enter и focus сразу — DOM уже готов к этому моменту
+// (скрипт в конце body, поэтому элементы существуют)
+document.addEventListener('DOMContentLoaded', () => {
+  _bindEnter('searchFrom', 'fromHomeSuggestions');
+  _bindEnter('searchTo',   'toHomeSuggestions');
+  _bindEnter('offerFrom',  'fromSuggestions');
+  _bindEnter('offerTo',    'toSuggestions');
+
+  document.getElementById('searchFrom')?.addEventListener('focus', e => handleAddressSearch(e.target.value, 'fromHomeSuggestions', 'searchFrom'));
+  document.getElementById('searchTo')?.addEventListener('focus',   e => handleAddressSearch(e.target.value, 'toHomeSuggestions',   'searchTo'));
+  document.getElementById('offerFrom')?.addEventListener('focus',  e => handleAddressSearch(e.target.value, 'fromSuggestions',     'offerFrom'));
+  document.getElementById('offerTo')?.addEventListener('focus',    e => handleAddressSearch(e.target.value, 'toSuggestions',       'offerTo'));
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-input-wrap') && !e.target.closest('.input-wrap-form') && !e.target.closest('.address-suggestions')) {
+    document.querySelectorAll('.address-suggestions').forEach(s => s.classList.remove('show'));
+  }
+  if (!e.target.closest('.chat-attach-btn') && !e.target.closest('.attach-menu')) {
+    document.getElementById('attachMenu')?.classList.remove('show');
+  }
+});
+
+// (listeners moved to window load in address search block)
+
+// ════════════════════════════════════════════════
+//  REAL GEOLOCATION + REVERSE GEOCODING (Nominatim)
+// ════════════════════════════════════════════════
+async function getRealLocation(inpId) {
+  const geoBtn = document.getElementById('geoBtn');
+  if (!navigator.geolocation) {
+    showToast('GPS не поддерживается', 'err');
+    return;
+  }
+  if (geoBtn) { geoBtn.disabled = true; geoBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+  showToast('📍 Определяем локацию...');
+
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const { latitude, longitude } = pos.coords;
+      try {
+        // Reverse geocoding via Nominatim
+        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&accept-language=ru&zoom=14`;
+        const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        const data = await resp.json();
+
+        let addr = formatNominatimAddress(data);
+
+        if (!addr) {
+          // Fallback to nearest city
+          let nearest = null, minDist = Infinity;
+          ADDRESSES.filter(a => a.type === 'city').forEach(a => {
+            const d = Math.sqrt(Math.pow(a.lat - latitude, 2) + Math.pow(a.lng - longitude, 2));
+            if (d < minDist) { minDist = d; nearest = a; }
+          });
+          if (nearest) addr = nearest.name + ' (примерно)';
+          else addr = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+        }
+
+        const inp = document.getElementById(inpId);
+        if (inp) inp.value = addr;
+        if (map) map.setView([latitude, longitude], 14);
+        showToast(`📍 ${addr}`, 'ok');
+      } catch (e) {
+        // Fallback to nearest city
+        let nearest = null, minDist = Infinity;
+        ADDRESSES.filter(a => a.type === 'city').forEach(a => {
+          const d = Math.sqrt(Math.pow(a.lat - latitude, 2) + Math.pow(a.lng - longitude, 2));
+          if (d < minDist) { minDist = d; nearest = a; }
+        });
+        const inp = document.getElementById(inpId);
+        if (inp && nearest) {
+          inp.value = nearest.name;
+          showToast(`📍 ${nearest.name}`, 'ok');
+        }
+      } finally {
+        if (geoBtn) { geoBtn.disabled = false; geoBtn.innerHTML = '<i class="fas fa-location-arrow"></i>'; }
+      }
+    },
+    (err) => {
+      if (geoBtn) { geoBtn.disabled = false; geoBtn.innerHTML = '<i class="fas fa-location-arrow"></i>'; }
+      showToast('❌ Не удалось определить локацию: ' + err.message, 'err');
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+// ════════════════════════════════════════════════
+//  MAP
+// ════════════════════════════════════════════════
+function initMap() {
+  if (map) return;
+  map = L.map('map', { zoomControl: true }).setView([38.55, 68.8], 7);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap',
+    maxZoom: 19
+  }).addTo(map);
+
+  // Долгое нажатие на карте → ставит точку и заполняет поле "Откуда"
+  let _longPressTimer = null;
+  map.on('mousedown touchstart', (e) => {
+    _longPressTimer = setTimeout(async () => {
+      const lat = e.latlng ? e.latlng.lat : e.touches?.[0]?.target?._leaflet_pos?.y;
+      const lng = e.latlng ? e.latlng.lng : null;
+      if (!lat || !lng) return;
+      if (window._locationMarker) map.removeLayer(window._locationMarker);
+      window._locationMarker = L.marker([lat, lng], {
+        icon: L.divIcon({ html: '<div style="background:#2563eb;width:14px;height:14px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4)"></div>', className:'', iconSize:[14,14], iconAnchor:[7,7] })
+      }).addTo(map);
+      showToast('📍 Определяем адрес...', '');
+      try {
+        const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=ru&zoom=18`;
+        const resp = await fetch(url);
+        const data = await resp.json();
+        const addr = formatNominatimAddress(data) || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        window._addrCoords = window._addrCoords || { from:null, to:null };
+        window._addrCoords.from = [lat, lng];
+        if (window._markerFrom) map.removeLayer(window._markerFrom);
+        window._markerFrom = L.marker([lat, lng], {
+          icon: L.divIcon({ html:'<div style="width:16px;height:16px;background:#10b981;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px rgba(16,185,129,.5)"></div>', className:'', iconSize:[16,16], iconAnchor:[8,8] })
+        }).bindPopup('<b>📍 Откуда</b><br>' + addr).addTo(map);
+        window._addrCoords = window._addrCoords || {from:null,to:null};
+        window._addrCoords.from = [lat, lng];
+        if (window._markerFrom) map.removeLayer(window._markerFrom);
+        const _fromIcon = L.divIcon({html:'<div style="width:16px;height:16px;background:#10b981;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px #10b98188"></div>',className:'',iconSize:[16,16],iconAnchor:[8,8]});
+        window._markerFrom = L.marker([lat,lng],{icon:_fromIcon}).bindPopup('<b>📍 Откуда</b><br>'+addr).addTo(map);
+        document.getElementById('searchFrom').value = addr;
+        showToast('✅ Адрес установлен: ' + addr.substring(0,40), 'ok');
+      } catch {
+        const fallback = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        document.getElementById('searchFrom').value = fallback;
+        showToast('📍 Координаты установлены', 'ok');
+      }
+    }, 600);
+  });
+  map.on('mouseup touchend touchcancel', () => {
+    clearTimeout(_longPressTimer);
+  });
+}
+
+function updateMapMarkers() {
+  if (!map) return;
+  mapMarkers.forEach(m => map.removeLayer(m));
+  mapMarkers = [];
+
+  allTrips.forEach(trip => {
+    // Сначала локальный список, потом координаты из самого trip если есть
+    const fromAddr = ADDRESSES.find(a => a.name === trip.from_city)
+      || (trip.from_lat && trip.from_lng ? { lat: trip.from_lat, lng: trip.from_lng } : null);
+    if (!fromAddr) return;
+    const icon = L.divIcon({
+      html: `<div class="driver-marker">🚗</div>`,
+      className: '',
+      iconSize: [36, 36],
+      iconAnchor: [18, 18]
+    });
+    const marker = L.marker([fromAddr.lat, fromAddr.lng], { icon }).addTo(map);
+    marker.bindPopup(`
+      <div style="font-family:'Inter',sans-serif;min-width:180px">
+        <div style="font-weight:800;font-size:13px;margin-bottom:3px">${esc(trip.driver_name)}</div>
+        <div style="font-size:11px;color:#64748b;margin-bottom:5px">${esc(trip.car_model || '')}</div>
+        <div style="font-size:12px;font-weight:700">${esc(trip.from_city)} → ${esc(trip.to_city)}</div>
+        <div style="font-size:11px;color:#64748b;margin:3px 0">${esc(trip.depart_date)}, ${esc(trip.depart_time)}</div>
+        <div style="font-size:16px;font-weight:900;color:#10b981;margin-top:5px">${trip.ride_cost} сомони</div>
+      </div>
+    `);
+    mapMarkers.push(marker);
+
+    const toAddr = ADDRESSES.find(a => a.name === trip.to_city);
+    if (toAddr) {
+      const line = L.polyline([[fromAddr.lat, fromAddr.lng], [toAddr.lat, toAddr.lng]], {
+        color: '#10b981', weight: 2, opacity: 0.4, dashArray: '6,5'
+      }).addTo(map);
+      mapMarkers.push(line);
+    }
+  });
+}
+
+// ════════════════════════════════════════════════
+//  MAP PICKER (for offer form)
+// ════════════════════════════════════════════════
+function openMapPicker(inpId) {
+  pickerForInput = inpId;
+  document.getElementById('mapPickerOverlay').classList.add('show');
+  document.getElementById('confirmPickerBtn').disabled = true;
+  document.getElementById('mapPickerInfo').innerHTML = '<i class="fas fa-hand-pointer" style="color:var(--green);margin-right:4px"></i> Нажмите на карту чтобы поставить точку';
+
+  setTimeout(() => {
+    if (!mapPicker) {
+      mapPicker = L.map('mapPicker', { zoomControl: true }).setView([38.55, 68.8], 7);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap', maxZoom: 19
+      }).addTo(mapPicker);
+
+      // Custom pin icon
+      const pinIcon = L.divIcon({
+        html: `<div style="
+          width:32px;height:32px;background:var(--green,#10b981);border-radius:50% 50% 50% 0;
+          transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.35);
+          display:flex;align-items:center;justify-content:center;
+        "><span style="transform:rotate(45deg);font-size:13px">📍</span></div>`,
+        className: '', iconSize: [32, 40], iconAnchor: [16, 40]
+      });
+
+      mapPicker.on('click', async (e) => {
+        const { lat, lng } = e.latlng;
+        if (pickerMarker) mapPicker.removeLayer(pickerMarker);
+        pickerMarker = L.marker([lat, lng], { icon: pinIcon, draggable: true }).addTo(mapPicker);
+
+        // Allow drag to fine-tune
+        pickerMarker.on('dragend', async () => {
+          const pos = pickerMarker.getLatLng();
+          await reverseGeocodePickerMarker(pos.lat, pos.lng);
+        });
+
+        document.getElementById('mapPickerInfo').innerHTML = '<i class="fas fa-spinner fa-spin" style="color:var(--green);margin-right:4px"></i> Определяем адрес...';
+        document.getElementById('confirmPickerBtn').disabled = true;
+        await reverseGeocodePickerMarker(lat, lng);
+      });
+    }
+    mapPicker.invalidateSize();
+  }, 100);
+}
+
+async function reverseGeocodePickerMarker(lat, lng) {
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=ru&zoom=18`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+    let addr = formatNominatimAddress(data);
+    if (!addr) addr = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    if (pickerMarker) pickerMarker.pickedAddress = addr;
+    document.getElementById('mapPickerInfo').innerHTML = '<i class="fas fa-map-marker-alt" style="color:var(--green);margin-right:4px"></i> ' + esc(addr);
+    document.getElementById('confirmPickerBtn').disabled = false;
+  } catch (e) {
+    const fallback = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    if (pickerMarker) pickerMarker.pickedAddress = fallback;
+    document.getElementById('mapPickerInfo').innerHTML = '<i class="fas fa-map-marker-alt" style="color:var(--amber);margin-right:4px"></i> ' + fallback;
+    document.getElementById('confirmPickerBtn').disabled = false;
+  }
+}
+
+function centerOnMyLocation() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      if (mapPicker) {
+        mapPicker.setView([pos.coords.latitude, pos.coords.longitude], 15);
+      }
+    },
+    () => showToast('Не удалось определить локацию', 'warn')
+  );
+}
+
+function closeMapPicker() {
+  document.getElementById('mapPickerOverlay').classList.remove('show');
+  if (pickerMarker && mapPicker) { mapPicker.removeLayer(pickerMarker); pickerMarker = null; }
+}
+
+function confirmMapPicker() {
+  if (!pickerMarker || !pickerForInput) return;
+  const pos  = pickerMarker.getLatLng();
+  const addr = pickerMarker.pickedAddress || (pos.lat.toFixed(5) + ', ' + pos.lng.toFixed(5));
+  // Записываем в поле
+  const inp = document.getElementById(pickerForInput);
+  if (inp) inp.value = addr;
+  // Сохраняем координаты и ставим маркер
+  if (pickerForInput === 'searchFrom' || pickerForInput === 'offerFrom') {
+    window._addrCoords.from = [pos.lat, pos.lng];
+    if (map) {
+      if (window._markerFrom) map.removeLayer(window._markerFrom);
+      const icon = L.divIcon({ html: '<div style="width:16px;height:16px;background:#10b981;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px #10b98188"></div>', className:'', iconSize:[16,16], iconAnchor:[8,8] });
+      window._markerFrom = L.marker([pos.lat,pos.lng], {icon}).bindPopup('<b>📍 Откуда</b><br>'+addr).addTo(map);
+    }
+  } else if (pickerForInput === 'searchTo' || pickerForInput === 'offerTo') {
+    window._addrCoords.to = [pos.lat, pos.lng];
+    if (map) {
+      if (window._markerTo) map.removeLayer(window._markerTo);
+      const icon = L.divIcon({ html: '<div style="width:16px;height:16px;background:#ef4444;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 8px #ef444488"></div>', className:'', iconSize:[16,16], iconAnchor:[8,8] });
+      window._markerTo = L.marker([pos.lat,pos.lng], {icon}).bindPopup('<b>🏁 Куда</b><br>'+addr).addTo(map);
+    }
+  }
+  // Если обе точки — рисуем маршрут
+  const co = window._addrCoords;
+  if (co.from && co.to && map) {
+    if (window._routeLine) map.removeLayer(window._routeLine);
+    window._routeLine = L.polyline([co.from, co.to], {color:'#10b981',weight:3,opacity:.7,dashArray:'8,5'}).addTo(map);
+    map.fitBounds(L.latLngBounds([co.from, co.to]), {padding:[55,55],maxZoom:13});
+  } else if ((co.from || co.to) && map) {
+    const pt = co.from || co.to;
+    map.flyTo(pt, 13, {duration:.8});
+  }
+  closeMapPicker();
+  showToast('✅ ' + addr.substring(0,40), 'ok');
+}
+
+// ════════════════════════════════════════════════
+//  FILTERS
+// ════════════════════════════════════════════════
+function toggleFilter(type, btn) {
+  const wasActive = btn.classList.contains('active');
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.filter-panel').forEach(p => p.classList.remove('active'));
+  if (!wasActive) {
+    btn.classList.add('active');
+    document.getElementById('filter' + type.charAt(0).toUpperCase() + type.slice(1)).classList.add('active');
+  }
+}
+
+function selectVehicleFilter(btn) {
+  document.querySelectorAll('#vehicleFilterIcons .vehicle-icon-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  activeVehicleFilter = btn.dataset.vehicle;
+  applyFilters();
+}
+
+function selectVehicleOffer(btn) {
+  document.querySelectorAll('#vehicleOfferIcons .vehicle-icon-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  activeOfferVehicle = btn.dataset.vehicle;
+  updatePrice();
+}
+
+function applyFilters() {
+  if (!searchPerformed) return;
+  renderTripOverlay();
+}
+
+// ════════════════════════════════════════════════
+//  SEARCH RIDES
+// ════════════════════════════════════════════════
+function searchRides() {
+  const from = document.getElementById('searchFrom').value.trim();
+  const to   = document.getElementById('searchTo').value.trim();
+  if (!from || !to) {
+    showToast('⚠️ Введите Откуда и Куда', 'warn');
+    if (!from) document.getElementById('searchFrom').focus();
+    else       document.getElementById('searchTo').focus();
+    return;
+  }
+  searchPerformed = true;
+  renderTripOverlay();
+
+  // Приоритет: координаты из selectSugAddress → локальный список → ничего
+  const cf = window._addrCoords?.from;
+  const ct = window._addrCoords?.to;
+  if (!map) initMap();
+  if (cf && ct && map) {
+    map.fitBounds(L.latLngBounds([cf, ct]), { padding:[50,50], maxZoom:14 });
+  } else if (cf && map) {
+    map.flyTo(cf, 12, { duration:0.8 });
+  } else {
+    const fa = ADDRESSES.find(a => a.name.toLowerCase().includes(from.split(' ')[0].toLowerCase()));
+    const ta = ADDRESSES.find(a => a.name.toLowerCase().includes(to.split(' ')[0].toLowerCase()));
+    if (fa && ta && map) map.fitBounds([[fa.lat,fa.lng],[ta.lat,ta.lng]], { padding:[40,40] });
+    else if (fa && map)  map.setView([fa.lat,fa.lng], 11);
+  }
+}
+
+function renderTripOverlay() {
+  const container = document.getElementById('tripOverlay');
+  if (!searchPerformed) {
+    container.classList.remove('show');
+    return;
+  }
+
+  const from = document.getElementById('searchFrom').value.trim().toLowerCase();
+  const to = document.getElementById('searchTo').value.trim().toLowerCase();
+  const maxPrice = parseInt(document.getElementById('priceValue')?.textContent || 500);
+  const time = document.getElementById('timeSelect')?.value || 'any';
+  const vehicle = activeVehicleFilter;
+
+  let filtered = allTrips.filter(t => t.ride_cost <= maxPrice);
+  // Берём первое слово из адреса (может быть "Душанбе улица Ленина дом 5")
+  const fromCity = from.split(' ')[0];
+  const toCity   = to.split(' ')[0];
+  if (fromCity) filtered = filtered.filter(t => t.from_city.toLowerCase().includes(fromCity));
+  if (toCity)   filtered = filtered.filter(t => t.to_city.toLowerCase().includes(toCity));
+  if (vehicle !== 'any') filtered = filtered.filter(t => (t.vehicle_type || 'car') === vehicle);
+  if (time !== 'any') {
+    filtered = filtered.filter(t => {
+      const h = parseInt((t.depart_time || '12:00').split(':')[0]);
+      if (time === 'morning') return h >= 6 && h < 12;
+      if (time === 'day') return h >= 12 && h < 18;
+      if (time === 'evening') return h >= 18;
+      return true;
+    });
+  }
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="empty-overlay"><i class="fas fa-search" style="font-size:24px;color:var(--muted);margin-bottom:5px;display:block"></i><b>Поездок не найдено</b><br>Попробуйте другой маршрут</div>';
+    container.classList.add('show');
+    return;
+  }
+
+  container.innerHTML = filtered.map(t => `
+    <div class="trip-card" onclick="viewTrip('${esc(t.id)}')">
+      <div class="trip-card-top">
+        <div class="trip-card-ava" style="background:${esc(t.driver_color || '#10b981')}">${esc(t.driver_avatar || t.driver_name.charAt(0))}</div>
+        <div class="trip-card-name">
+          <div class="trip-card-driver">${esc(t.driver_name)}</div>
+          <div class="trip-card-car">${esc(t.car_model || 'Автомобиль')}</div>
+        </div>
+        <div class="trip-card-rating">⭐ ${(t.driver_rating || 5).toFixed(1)}</div>
+      </div>
+      <div class="trip-card-route">
+        <span class="trip-card-dot from"></span>${esc(t.from_city)}
+        <i class="fas fa-arrow-right" style="color:var(--muted);font-size:9px"></i>
+        <span class="trip-card-dot to"></span>${esc(t.to_city)}
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:5px">
+        ${formatDate(t.depart_date)}, ${esc(t.depart_time.substring(0,5))} · ${t.seats_available} мест
+      </div>
+      <div class="trip-card-bottom">
+        <span class="trip-card-price">${t.ride_cost} сом</span>
+        ${t.id && t.id.startsWith('demo-')
+          ? '<span style="font-size:10px;color:var(--muted);font-weight:600;padding:5px 8px;background:var(--bg);border-radius:7px">📋 Демо</span>'
+          : '<button class="trip-card-book" onclick="event.stopPropagation();bookRide(\'' + esc(t.id) + '\')">Забронировать</button>'
+        }
+      </div>
+    </div>
+  `).join('');
+  container.classList.add('show');
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  // Парсим как локальную дату, не UTC (иначе сдвиг на 1 день)
+  const parts = dateStr.split('-');
+  const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+  const today    = new Date(); today.setHours(0,0,0,0);
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate()+1);
+  d.setHours(0,0,0,0);
+  if (d.getTime() === today.getTime())    return 'Сегодня';
+  if (d.getTime() === tomorrow.getTime()) return 'Завтра';
+  return d.toLocaleDateString('ru-RU', { day:'numeric', month:'short' });
+}
+
+function viewTrip(id) {
+  const t = allTrips.find(x => x.id === id);
+  if (!t) return;
+  const fromAddr = ADDRESSES.find(a => a.name === t.from_city);
+  const toAddr   = ADDRESSES.find(a => a.name === t.to_city);
+  if (!map) initMap();
+  if (fromAddr && toAddr && map) {
+    map.fitBounds([[fromAddr.lat,fromAddr.lng],[toAddr.lat,toAddr.lng]], { padding:[50,50], maxZoom:12 });
+  } else if (fromAddr && map) {
+    map.setView([fromAddr.lat,fromAddr.lng], 11);
+  }
+}
+
+// ════════════════════════════════════════════════
+//  SUPABASE: LOAD DATA
+// ════════════════════════════════════════════════
+const DEMO_TRIPS = [
+  { id:'demo-1', driver_name:'Алишер Назаров', driver_phone:'+992901234567', driver_avatar:'А', driver_color:'#10b981', driver_rating:4.9, car_model:'Hyundai Sonata', from_city:'Душанбе', to_city:'Худжанд', depart_date: new Date(Date.now()+86400000).toISOString().split('T')[0], depart_time:'08:00', seats_total:3, seats_available:2, ride_cost:120, parcel_cost:15, vehicle_type:'car', status:'active' },
+  { id:'demo-2', driver_name:'Муродали Рахимов', driver_phone:'+992907654321', driver_avatar:'М', driver_color:'#2563eb', driver_rating:4.7, car_model:'Toyota Camry', from_city:'Худжанд', to_city:'Душанбе', depart_date: new Date(Date.now()+86400000).toISOString().split('T')[0], depart_time:'09:30', seats_total:4, seats_available:3, ride_cost:130, parcel_cost:12, vehicle_type:'car', status:'active' },
+  { id:'demo-3', driver_name:'Баходур Тошев', driver_phone:'+992935551234', driver_avatar:'Б', driver_color:'#7c3aed', driver_rating:5.0, car_model:'Chevrolet Malibu', from_city:'Душанбе', to_city:'Куляб', depart_date: new Date(Date.now()+2*86400000).toISOString().split('T')[0], depart_time:'07:00', seats_total:3, seats_available:1, ride_cost:90, parcel_cost:10, vehicle_type:'car', status:'active' },
+  { id:'demo-4', driver_name:'Фаридун Холов', driver_phone:'+992934441234', driver_avatar:'Ф', driver_color:'#f59e0b', driver_rating:4.6, car_model:'Volkswagen Transporter', from_city:'Бохтар', to_city:'Душанбе', depart_date: new Date(Date.now()+86400000).toISOString().split('T')[0], depart_time:'06:30', seats_total:8, seats_available:5, ride_cost:80, parcel_cost:20, vehicle_type:'minivan', status:'active' },
+  { id:'demo-5', driver_name:'Шерали Юсупов', driver_phone:'+992911112233', driver_avatar:'Ш', driver_color:'#ef4444', driver_rating:4.8, car_model:'MAN TGX', from_city:'Душанбе', to_city:'Исфара', depart_date: new Date(Date.now()+3*86400000).toISOString().split('T')[0], depart_time:'05:00', seats_total:2, seats_available:2, ride_cost:200, parcel_cost:50, vehicle_type:'truck', status:'active' },
+];
+
+async function loadTrips() {
+  if (!sb) {
+    setSyncOff();
+    if (allTrips.length === 0) { allTrips = DEMO_TRIPS; updateMapMarkers(); if (searchPerformed) renderTripOverlay(); }
+    return;
+  }
+  try {
+    const { data, error } = await sb.from('trips').select('*').eq('status','active').order('depart_date').order('depart_time');
+    if (error) throw error;
+    // Если база пустая — показываем демо-данные
+    allTrips = (data && data.length > 0) ? data : DEMO_TRIPS;
+    if (searchPerformed) renderTripOverlay();
+    updateMapMarkers();
+    setSyncOn();
+  } catch (e) {
+    console.error('loadTrips error:', e);
+    setSyncOff();
+    if (allTrips.length === 0) allTrips = DEMO_TRIPS;
+    if (searchPerformed) renderTripOverlay();
+    updateMapMarkers();
+  }
+}
+
+async function loadMyBookings() {
+  if (!sb || !currentUser) { myBookings = []; updateNavBadge(); return; }
+  try {
+    const { data, error } = await sb.from('bookings').select('*, trips(*)').eq('passenger_phone', currentUser.phone).order('created_at', { ascending:false });
+    if (error) throw error;
+    myBookings = data || [];
+    updateNavBadge();
+    if (document.getElementById('screen-trips').classList.contains('active')) renderMyTrips('active');
+  } catch (e) {
+    console.error('loadMyBookings:', e);
+  }
+}
+
+function updateNavBadge() {
+  const activeCount = myBookings.filter(b => b.status === 'pending' || b.status === 'confirmed').length;
+  const badge = document.getElementById('navBadgeTrips');
+  if (activeCount > 0) {
+    badge.textContent = activeCount;
+    badge.style.display = 'block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function setSyncOn() {
+  document.getElementById('syncPill').classList.remove('off');
+  document.getElementById('syncText').textContent = 'Онлайн';
+}
+function setSyncOff() {
+  document.getElementById('syncPill').classList.add('off');
+  document.getElementById('syncText').textContent = 'Офлайн';
+}
+
+// ════════════════════════════════════════════════
+//  REALTIME
+// ════════════════════════════════════════════════
+function setupRealtime() {
+  if (!sb) return;
+  try {
+    if (tripsSub) sb.removeChannel(tripsSub);
+    tripsSub = sb.channel('public:trips')
+      .on('postgres_changes', { event:'*', schema:'public', table:'trips' }, () => loadTrips())
+      .subscribe();
+
+    if (bookingsSub) sb.removeChannel(bookingsSub);
+    bookingsSub = sb.channel('public:bookings')
+      .on('postgres_changes', { event:'*', schema:'public', table:'bookings' }, () => {
+        if (currentUser) loadMyBookings();
+      })
+      .subscribe();
+  } catch (e) { console.error('Realtime error:', e); }
+}
+
+// ════════════════════════════════════════════════
+//  AUTH (with SMS code = 0000)
+// ════════════════════════════════════════════════
+function handleUserAvatar() {
+  if (currentUser) {
+    switchTab('profile');
+  } else {
+    openAuthModal();
+  }
+}
+
+function openAuthModal() {
+  document.getElementById('authModal').classList.add('show');
+  document.getElementById('authPhoneStep').style.display = 'block';
+  document.getElementById('authSmsStep').style.display = 'none';
+}
+
+function closeAuthModal() {
+  document.getElementById('authModal').classList.remove('show');
+}
+
+let _smsSending=false;
+function sendSmsCode() {
+  if(_smsSending) return;
+  _smsSending=true;
+  setTimeout(()=>_smsSending=false,3000);
+  const phone = document.getElementById('authPhone').value.trim();
+  const name = document.getElementById('authName').value.trim();
+  const cleanPhone = phone.replace(/[\s\-]/g,'');
+  if (!/^\+992[0-9]{9}$/.test(cleanPhone)) {
+    showToast('⚠️ Номер: +992XXXXXXXXX (например +992889000507)','warn');
+    return;
+  }
+  phone = cleanPhone;
+  if (!name) { showToast('⚠️ Введите имя', 'warn'); return; }
+
+  document.getElementById('smsPhoneDisplay').textContent = phone;
+  document.getElementById('authPhoneStep').style.display = 'none';
+  document.getElementById('authSmsStep').style.display = 'block';
+  setTimeout(() => document.getElementById('sms1').focus(), 200);
+  showToast('📩 SMS-код: 0000 (тестовый режим)', 'ok');
+}
+
+function smsAutoNext(inp, nextId) {
+  // Оставляем только цифры
+  inp.value = inp.value.replace(/\D/g, '').substring(0,1);
+  if (inp.value.length === 1) {
+    if (nextId <= 4) {
+      document.getElementById('sms' + nextId)?.focus();
+    } else {
+      // 4-я цифра — автозапуск проверки
+      setTimeout(verifySmsCode, 150);
+    }
+  }
+}
+
+function backToPhone() {
+  document.getElementById('authPhoneStep').style.display = 'block';
+  document.getElementById('authSmsStep').style.display = 'none';
+  ['sms1','sms2','sms3','sms4'].forEach(id => document.getElementById(id).value = '');
+}
+
+async function verifySmsCode() {
+  const code = ['sms1','sms2','sms3','sms4'].map(id => document.getElementById(id).value).join('');
+  if (code.length !== 4) { showToast('⚠️ Введите 4 цифры', 'warn'); return; }
+  if (code !== '0000') { showToast('❌ Неверный код. Тестовый код: 0000', 'err'); return; }
+
+  const phone = document.getElementById('authPhone').value.trim();
+  const name = document.getElementById('authName').value.trim();
+
+  try {
+    if (!sb) throw new Error('Нет подключения к серверу');
+    let { data: existing, error: selErr } = await sb.from('users_happy').select('*').eq('phone', phone).maybeSingle();
+    if (selErr) { showToast(handleSupabaseError(selErr, 'users_happy'), 'err'); return; }
+    if (!existing) {
+      const colors = ['#10b981','#2563eb','#dc2626','#7c3aed','#059669','#f59e0b','#ec4899'];
+      const { data, error } = await sb.from('users_happy').insert({
+        phone, name, avatar_color: colors[Math.floor(Math.random()*colors.length)], rating: 5.0
+      }).select().single();
+      if (error) { showToast(handleSupabaseError(error, 'users_happy'), 'err'); return; }
+      existing = data;
+      showToast('🎉 Регистрация успешна!', 'ok');
+    } else {
+      showToast('✅ С возвращением, ' + existing.name + '!', 'ok');
+    }
+    currentUser = existing;
+    localStorage.setItem('tachikput_user', JSON.stringify(currentUser));
+    updateUserUI();
+    closeAuthModal();
+    await loadMyBookings();
+  } catch (e) {
+    showToast(handleSupabaseError(e, 'users_happy'), 'err');
+  }
+}
+
+function updateUserUI() {
+  renderProfile();
+}
+
+function requireAuth() {
+  if (!currentUser) {
+    showToast('🔐 Сначала войдите', 'warn');
+    openAuthModal();
+    return false;
+  }
+  return true;
+}
+
+function logout() {
+  if (!confirm('Выйти из аккаунта?')) return;
+  currentUser = null;
+  localStorage.removeItem('tachikput_user');
+  myBookings = [];
+  updateNavBadge();
+  renderProfile();
+  showToast('Вы вышли', 'ok');
+  switchTab('home');
+}
+
+// ════════════════════════════════════════════════
+//  PROFILE
+// ════════════════════════════════════════════════
+function renderProfile() {
+  const c = document.getElementById('profileContent');
+  if (!currentUser) {
+    c.innerHTML = `
+      <div style="text-align:center;padding:30px 18px">
+        <div class="profile-ava" style="background:linear-gradient(135deg,#94a3b8,#64748b)"><i class="fas fa-user"></i></div>
+        <div class="profile-name">Вы не вошли</div>
+        <div class="profile-phone">Войдите чтобы пользоваться сервисом</div>
+        <button class="submit-btn green" style="margin-top:18px" onclick="openAuthModal()">
+          <i class="fas fa-sign-in-alt"></i> Войти / Зарегистрироваться
+        </button>
+      </div>`;
+    return;
+  }
+
+  const completed = myBookings.filter(b => b.status === 'completed').length;
+  const total = myBookings.length;
+  c.innerHTML = `
+    <div class="profile-header">
+      <div class="profile-ava" style="background:linear-gradient(135deg,${esc(currentUser.avatar_color || '#10b981')},#2563eb)">${esc(currentUser.name.charAt(0).toUpperCase())}</div>
+      <div class="profile-name">${esc(currentUser.name)}</div>
+      <div class="profile-verified"><i class="fas fa-check-circle"></i> Проверен</div>
+      <div class="profile-phone">${esc(currentUser.phone)}</div>
+    </div>
+    <div class="profile-stats">
+      <div class="stat-card"><div class="stat-value">${(currentUser.rating || 5).toFixed(1)}</div><div class="stat-label">⭐ Рейтинг</div></div>
+      <div class="stat-card"><div class="stat-value">${total}</div><div class="stat-label">📦 Поездки</div></div>
+      <div class="stat-card"><div class="stat-value">${completed}</div><div class="stat-label">✅ Завершено</div></div>
+    </div>
+    <div>
+      <div class="menu-item" onclick="openCourierModal()"><i class="fas fa-id-card"></i>Стать водителем<i class="fas fa-chevron-right menu-arrow"></i></div>
+      <div class="menu-item" onclick="showToast('Настройки скоро','ok')"><i class="fas fa-cog"></i>Настройки<i class="fas fa-chevron-right menu-arrow"></i></div>
+      <div class="menu-item" onclick="toggleTheme()"><i class="fas fa-moon"></i>Тёмная тема<i class="fas fa-chevron-right menu-arrow"></i></div>
+      <div class="menu-item" onclick="showToast('Реферальный код: TACHIK50','ok')"><i class="fas fa-gift"></i>Пригласить друга<i class="fas fa-chevron-right menu-arrow"></i></div>
+      ${currentUser.phone===ADMIN_PHONE?`<div class="menu-item" onclick="goAdmin()"><i class="fas fa-chart-line"></i>Админ-панель<i class="fas fa-chevron-right menu-arrow"></i></div>`:''}
+      <div class="menu-item" onclick="logout()" style="color:var(--red)"><i class="fas fa-sign-out-alt"></i>Выйти<i class="fas fa-chevron-right menu-arrow"></i></div>
+    </div>`;
+}
+
+// ════════════════════════════════════════════════
+//  BOOKING
+// ════════════════════════════════════════════════
+function bookRide(tripId) {
+  if (!requireAuth()) return;
+  const trip = allTrips.find(t => t.id === tripId);
+  if (!trip) return;
+  activeBookTrip = trip;
+
+  document.getElementById('bsAva').textContent = trip.driver_avatar || trip.driver_name.charAt(0);
+  document.getElementById('bsAva').style.background = trip.driver_color || '#10b981';
+  document.getElementById('bsName').textContent = trip.driver_name;
+  document.getElementById('bsMeta').textContent = (trip.car_model || '') + ' · ' + trip.from_city + ' → ' + trip.to_city;
+  document.getElementById('bsRating').textContent = '⭐ ' + (trip.driver_rating || 5).toFixed(1);
+
+  bookType = 'passenger';
+  bookParcelSize = 's';
+  bookPayMethod = 'cash';
+  document.getElementById('optPassenger').classList.add('active');
+  document.getElementById('optParcel').classList.remove('active');
+  document.getElementById('parcelSizeBlock').style.display = 'none';
+  document.getElementById('pmCash').classList.add('active');
+  document.getElementById('pmCard').classList.remove('active');
+  document.getElementById('cardForm').style.display = 'none';
+  document.getElementById('bsNote').value = '';
+
+  updateBookTotal();
+  document.getElementById('bookForm').style.display = 'block';
+  document.getElementById('bookSuccess').style.display = 'none';
+  document.getElementById('bookModal').classList.add('show');
+}
+
+function setBookType(type) {
+  bookType = type;
+  document.getElementById('optPassenger').classList.toggle('active', type === 'passenger');
+  document.getElementById('optParcel').classList.toggle('active', type === 'parcel');
+  document.getElementById('parcelSizeBlock').style.display = type === 'parcel' ? 'block' : 'none';
+  updateBookTotal();
+}
+
+function setBookParcelSize(btn, size) {
+  bookParcelSize = size;
+  btn.parentElement.querySelectorAll('.option-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function setBookPay(method) {
+  bookPayMethod = method;
+  document.getElementById('pmCash').classList.toggle('active', method === 'cash');
+  document.getElementById('pmCard').classList.toggle('active', method === 'card');
+  document.getElementById('cardForm').style.display = method === 'card' ? 'block' : 'none';
+}
+
+function updateBookTotal() {
+  if (!activeBookTrip) return;
+  let cost, parcelCost = 0;
+  if (bookType === 'passenger') {
+    cost = activeBookTrip.ride_cost;
+    document.getElementById('bsCost1').textContent = cost + ' сом';
+    document.getElementById('bsParcelRow').style.display = 'none';
+  } else {
+    cost = 0;
+    parcelCost = activeBookTrip.parcel_cost || 5;
+    document.getElementById('bsCost1').textContent = '0 сом';
+    document.getElementById('bsCost2').textContent = '+' + parcelCost + ' сом';
+    document.getElementById('bsParcelRow').style.display = 'flex';
+  }
+  const subtotal = cost + parcelCost;
+  const commission = Math.round(subtotal * 0.05);
+  document.getElementById('bsCommission').textContent = '+' + commission + ' сом';
+  document.getElementById('bsTotal').textContent = (subtotal + commission) + ' сом';
+}
+
+function formatCard(inp) {
+  let v = inp.value.replace(/\D/g, '').substring(0, 16);
+  inp.value = v.replace(/(\d{4})(?=\d)/g, '$1 ');
+}
+
+async function confirmBooking() {
+  if (!activeBookTrip || !currentUser || !sb) return;
+  const btn = document.getElementById('confirmBookBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Бронируем...';
+
+  // Validate card if needed
+  if (bookPayMethod === 'card') {
+    const num = document.getElementById('cardNum').value.replace(/\s/g,'');
+    const exp = document.getElementById('cardExp').value;
+    const cvv = document.getElementById('cardCvv').value;
+    if (num.length < 16 || !exp.includes('/') || cvv.length !== 3) {
+      showToast('⚠️ Заполните данные карты', 'warn');
+      btn.disabled = false;
+      btn.innerHTML = 'Забронировать';
+      return;
+    }
+  }
+
+  const code = 'TCH-' + Math.floor(10000 + Math.random()*89999);
+  const cost = bookType === 'passenger' ? activeBookTrip.ride_cost : (activeBookTrip.parcel_cost || 5);
+  const total = cost + Math.round(cost * 0.05);
+  const note = document.getElementById('bsNote').value.trim();
+
+  try {
+    const { error } = await sb.from('bookings').insert({
+      trip_id: activeBookTrip.id,
+      passenger_phone: currentUser.phone,
+      passenger_name: currentUser.name,
+      is_parcel: bookType === 'parcel',
+      parcel_size: bookType === 'parcel' ? bookParcelSize : null,
+      total_cost: total,
+      status: 'pending',
+      booking_code: code,
+      pay_method: bookPayMethod,
+      note: note || null
+    });
+    if (error) throw error;
+
+    // Update seats
+    if (bookType === 'passenger' && activeBookTrip.seats_available > 0) {
+      await sb.from('trips').update({ seats_available: activeBookTrip.seats_available - 1 })
+        .eq('id', activeBookTrip.id);
+    }
+
+    // Notify driver via chat
+    await sb.from('messages').insert({
+      trip_id: activeBookTrip.id,
+      sender_phone: 'SYSTEM',
+      sender_name: 'Тачикпуть',
+      message: `🔔 НОВАЯ БРОНЬ ${code}\n${currentUser.name} (${currentUser.phone})\n${bookType === 'passenger' ? '🧑 Место' : '📦 Посылка'}\n💰 ${total} сом · ${bookPayMethod === 'cash' ? 'Наличные' : 'Карта оплачена'}${note ? '\n💬 ' + note : ''}`
+    });
+
+    document.getElementById('successCode').textContent = code;
+    document.getElementById('bookForm').style.display = 'none';
+    document.getElementById('bookSuccess').style.display = 'block';
+    showToast('✅ Водитель уведомлён!', 'ok');
+    await loadMyBookings();
+    await loadTrips();
+  } catch (e) {
+    showToast('Ошибка: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Забронировать';
+  }
+}
+
+function closeBookModal() {
+  document.getElementById('bookModal').classList.remove('show');
+  activeBookTrip = null;
+}
+
+// ════════════════════════════════════════════════
+//  MY TRIPS
+// ════════════════════════════════════════════════
+async function loadMyTrips() {
+  await loadMyBookings();
+  renderMyTrips('active');
+}
+
+function filterMyTrips(btn, type) {
+  document.querySelectorAll('#screen-trips .tab-link').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  renderMyTrips(type);
+}
+
+function renderMyTrips(filter) {
+  const c = document.getElementById('myTripsContainer');
+  if (!currentUser) {
+    c.innerHTML = `
+      <div style="text-align:center;padding:50px 20px">
+        <i class="fas fa-lock" style="font-size:48px;color:var(--muted);opacity:.3;margin-bottom:14px"></i>
+        <div style="font-weight:700;margin-bottom:6px">Войдите чтобы видеть поездки</div>
+        <button class="submit-btn green" style="margin-top:14px" onclick="openAuthModal()">Войти</button>
+      </div>`;
+    return;
+  }
+
+  let list = [...myBookings];
+  if (filter === 'active') list = list.filter(b => b.status === 'pending' || b.status === 'confirmed');
+  else if (filter === 'completed') list = list.filter(b => b.status === 'completed');
+  else if (filter === 'cancelled') list = list.filter(b => b.status === 'cancelled');
+
+  if (list.length === 0) {
+    c.innerHTML = `
+      <div style="text-align:center;padding:50px 20px">
+        <i class="fas fa-inbox" style="font-size:48px;color:var(--muted);opacity:.3;margin-bottom:14px"></i>
+        <div style="font-weight:700">Здесь пусто</div>
+        <div style="color:var(--muted);font-size:13px;margin-top:4px">Забронируйте свою первую поездку</div>
+      </div>`;
+    return;
+  }
+
+  c.innerHTML = list.map(b => {
+    const t = b.trips || {};
+    const statusLabel = {
+      'pending': 'Ожидание',
+      'confirmed': 'Подтверждено',
+      'completed': 'Завершено',
+      'cancelled': 'Отменено'
+    }[b.status] || b.status;
+
+    const actions = [];
+    if (b.status === 'pending' || b.status === 'confirmed') {
+      actions.push(`<button class="btn-chat" onclick="event.stopPropagation();openChat('${esc(b.trip_id)}')"><i class="fas fa-comment"></i> Чат</button>`);
+      actions.push(`<button class="btn-cancel" onclick="event.stopPropagation();cancelBooking('${esc(b.id)}')"><i class="fas fa-times"></i> Отменить</button>`);
+    }
+    if (b.status === 'completed' && b.rated !== true) {
+      actions.push(`<button class="btn-rate" onclick="event.stopPropagation();openRateModal('${esc(b.id)}','${esc(t.driver_name || '')}')"><i class="fas fa-star"></i> Оценить</button>`);
+    }
+
+    return `
+      <div class="my-trip-card">
+        <div class="my-trip-top">
+          <div class="my-trip-ava" style="background:${esc(t.driver_color || '#10b981')}">${esc(t.driver_avatar || (t.driver_name || '?').charAt(0))}</div>
+          <div class="my-trip-info">
+            <div class="my-trip-route">${esc(t.from_city || '')} → ${esc(t.to_city || '')}</div>
+            <div class="my-trip-meta">${esc(t.driver_name || '')} · ${formatDate(t.depart_date)}, ${(t.depart_time || '').substring(0,5)}</div>
+            <div style="font-size:11px;font-weight:700;color:var(--green);margin-top:2px">${b.is_parcel ? '📦 Посылка' : '🧑 Место'} · ${b.total_cost} сом · ${esc(b.booking_code)}</div>
+          </div>
+          <div class="my-trip-status ${b.status}">${statusLabel}</div>
+        </div>
+        ${actions.length ? '<div class="my-trip-actions">' + actions.join('') + '</div>' : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+async function cancelBooking(bookingId) {
+  if (!confirm('Точно отменить бронь?')) return;
+  if (!sb) return;
+  try {
+    const booking = myBookings.find(b => b.id === bookingId);
+    const { error } = await sb.from('bookings').update({ status: 'cancelled' }).eq('id', bookingId);
+    if (error) throw error;
+
+    // Return seat — re-fetch current count to avoid stale data
+    if (booking && !booking.is_parcel && booking.trip_id) {
+      const { data: freshTrip } = await sb.from('trips').select('seats_available,seats_total').eq('id', booking.trip_id).single();
+      if (freshTrip) {
+        const newSeats = Math.min((freshTrip.seats_available || 0) + 1, freshTrip.seats_total || 8);
+        await sb.from('trips').update({ seats_available: newSeats }).eq('id', booking.trip_id);
+      }
+    }
+
+    // Notify
+    if (booking) {
+      await sb.from('messages').insert({
+        trip_id: booking.trip_id,
+        sender_phone: 'SYSTEM',
+        sender_name: 'Тачикпуть',
+        message: `❌ БРОНЬ ОТМЕНЕНА\n${currentUser.name} отменил(а) бронь ${booking.booking_code}`
+      });
+    }
+
+    showToast('✅ Бронь отменена', 'ok');
+    await loadMyBookings();
+    renderMyTrips('cancelled');
+    document.querySelectorAll('#screen-trips .tab-link').forEach(t => t.classList.toggle('active', t.dataset.tab === 'cancelled'));
+  } catch (e) {
+    showToast('Ошибка: ' + e.message, 'err');
+  }
+}
+
+// ════════════════════════════════════════════════
+//  RATING
+// ════════════════════════════════════════════════
+function openRateModal(bookingId, driverName) {
+  rateBookingId = bookingId;
+  rateStars = 0;
+  document.getElementById('rateDriverName').textContent = 'Как прошла поездка с ' + driverName + '?';
+  document.querySelectorAll('#starsRow i').forEach(s => { s.className = 'far fa-star'; s.style.color = '#cbd5e1'; });
+  document.getElementById('rateComment').value = '';
+  document.getElementById('rateModal').classList.add('show');
+}
+
+function closeRateModal() {
+  document.getElementById('rateModal').classList.remove('show');
+}
+
+function setStars(n) {
+  rateStars = n;
+  document.querySelectorAll('#starsRow i').forEach((s, i) => {
+    if (i < n) { s.className = 'fas fa-star'; s.style.color = '#f59e0b'; }
+    else { s.className = 'far fa-star'; s.style.color = '#cbd5e1'; }
+  });
+}
+
+async function submitRating() {
+  if (rateStars === 0) { showToast('Поставьте оценку', 'warn'); return; }
+  if (!sb || !rateBookingId) return;
+  try {
+    await sb.from('bookings').update({ status: 'completed', rated: true }).eq('id', rateBookingId);
+    closeRateModal();
+    showToast('⭐ Спасибо за оценку!', 'ok');
+    await loadMyBookings();
+    renderMyTrips('completed');
+  } catch (e) {
+    showToast('Ошибка: ' + e.message, 'err');
+  }
+}
+
+function resetOfferForm(){
+  seats=2; document.getElementById('seatCountDisplay').textContent=2;
+  ['offerFrom','offerTo','offerNote','customPrice'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const today=new Date().toISOString().split('T')[0];
+  const di=document.getElementById('offerDate'); if(di)di.value=today;
+  const ti=document.getElementById('offerTime'); if(ti)ti.value='';
+  const ci=document.getElementById('offerCar'); if(ci)ci.value=currentUser?.car_model||'';
+  activeOfferVehicle='car';
+  document.querySelectorAll('#vehicleOfferIcons .vehicle-icon-btn').forEach(b=>b.classList.toggle('active',b.dataset.vehicle==='car'));
+  const ic=document.getElementById('insuranceCheck'); if(ic)ic.checked=false;
+  const dd=document.getElementById('doorDelivery'); if(dd)dd.checked=false;
+  updatePrice();
+}
+
+// ════════════════════════════════════════════════
+//  OFFER TRIP
+// ════════════════════════════════════════════════
+function changeSeats(d) {
+  seats = Math.max(1, Math.min(8, seats + d));
+  document.getElementById('seatCountDisplay').textContent = seats;
+  updatePrice();
+}
+
+document.querySelectorAll('#parcelSizeGroup .option-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#parcelSizeGroup .option-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    activeParcelSize = this.dataset.parcel;
+    updatePrice();
+  });
+});
+
+document.querySelectorAll('#weightGroup .option-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#weightGroup .option-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    activeWeight = this.dataset.weight;
+    updatePrice();
+  });
+});
+
+let _calculatedPrice = 200; // глобальная переменная цены
+function updatePrice() {
+  const v = activeOfferVehicle;
+  let base = v==='car'?50 : v==='minivan'?80 : v==='truck'?120 : 150;
+  base *= seats; // учитываем количество мест
+  const w = activeWeight;
+  if (w === 'medium')    base *= 1.2;
+  if (w === 'heavy')     base *= 1.6;
+  if (w === 'very_heavy') base *= 2.5;
+  if (document.getElementById('insuranceCheck')?.checked) base *= 1.02;
+  if (document.getElementById('doorDelivery')?.checked)   base *= 1.10;
+  _calculatedPrice = Math.round(base);
+  document.getElementById('recommendedPrice').textContent = _calculatedPrice + ' сомони';
+}
+
+async function submitOffer() {
+  if (!requireAuth()) return;
+  if (!sb) { showToast('Нет связи', 'err'); return; }
+
+  const from = document.getElementById('offerFrom').value.trim();
+  const to = document.getElementById('offerTo').value.trim();
+  const date = document.getElementById('offerDate').value;
+  const time = document.getElementById('offerTime').value;
+  const customPriceVal = parseInt(document.getElementById('customPrice').value);
+  const price = (!isNaN(customPriceVal) && customPriceVal > 0) ? customPriceVal : _calculatedPrice;
+  const car = document.getElementById('offerCar')?.value.trim()||'';
+  const note = document.getElementById('offerNote').value.trim();
+
+  if (!from || !to) { showToast('⚠️ Укажите маршрут', 'warn'); return; }
+  if (price < 10) { showToast('⚠️ Минимальная цена 10 сом', 'warn'); return; }
+  if (!date) { showToast('⚠️ Выберите дату', 'warn'); return; }
+  if (!time) { showToast('⚠️ Выберите время', 'warn'); return; }
+
+  // Validate date is not in past
+  const tripDate = new Date(date + 'T' + time);
+  if (tripDate < new Date()) { showToast('⚠️ Дата не может быть в прошлом', 'warn'); return; }
+
+  try {
+    const colors = ['#10b981','#2563eb','#dc2626','#7c3aed','#f59e0b','#ec4899'];
+    const { error } = await sb.from('trips').insert({
+      driver_name: currentUser.name,
+      driver_phone: currentUser.phone,
+      driver_avatar: currentUser.name.charAt(0).toUpperCase(),
+      driver_color: currentUser.avatar_color || colors[Math.floor(Math.random()*colors.length)],
+      driver_rating: currentUser.rating || 5.0,
+      car_model: car || currentUser.car_model || 'Автомобиль',
+      from_city: from,
+      to_city: to,
+      depart_date: date,
+      depart_time: time,
+      seats_total: seats,
+      seats_available: seats,
+      ride_cost: price,
+      parcel_cost: Math.round(price * 0.1),
+      vehicle_type: activeOfferVehicle,
+      note: note || null
+    });
+    if (error) throw error;
+    showToast('✅ Поездка размещена!', 'ok');
+    document.getElementById('offerFrom').value = '';
+    document.getElementById('offerTo').value = '';
+    document.getElementById('offerNote').value = '';
+    document.getElementById('customPrice').value = '';
+    await loadTrips();
+    switchTab('trips');
+  } catch (e) {
+    showToast('Ошибка: ' + e.message, 'err');
+  }
+}
+
+// ════════════════════════════════════════════════
+//  CHAT
+// ════════════════════════════════════════════════
+let chatMessages = [];
+
+async function openChat(tripId) {
+  if (!requireAuth()) return;
+  let trip = allTrips.find(t => t.id === tripId);
+  if (!trip) {
+    const booking = myBookings.find(b => b.trip_id === tripId);
+    if (booking?.trips) { trip = { ...booking.trips, id: booking.trip_id }; }
+  }
+  if (!trip) { showToast('Поездка не найдена', 'err'); return; }
+  activeChatTrip = trip;
+
+  document.getElementById('chatAva').textContent = trip.driver_avatar || trip.driver_name.charAt(0);
+  document.getElementById('chatAva').style.background = trip.driver_color || '#10b981';
+  document.getElementById('chatName').textContent = trip.driver_name;
+  document.getElementById('chatModal').classList.add('show');
+
+  await loadChatMessages(tripId);
+
+  if (chatSub) sb.removeChannel(chatSub);
+  chatSub = sb.channel('chat-' + tripId)
+    .on('postgres_changes', { event:'INSERT', schema:'public', table:'messages', filter: `trip_id=eq.${tripId}` }, payload => {
+      chatMessages.push(payload.new);
+      renderChat();
+    })
+    .subscribe();
+}
+
+function closeChat() {
+  document.getElementById('chatModal').classList.remove('show');
+  if (chatSub) { sb.removeChannel(chatSub); chatSub = null; }
+}
+
+async function loadChatMessages(tripId) {
+  if (!sb) return;
+  try {
+    const { data } = await sb.from('messages').select('*').eq('trip_id', tripId).order('created_at');
+    chatMessages = data || [];
+    renderChat();
+  } catch (e) { console.error(e); }
+}
+
+function renderChat() {
+  const body = document.getElementById('chatBody');
+  if (chatMessages.length === 0) {
+    body.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:24px">Начните общение</div>';
+    return;
+  }
+
+  body.innerHTML = chatMessages.map(m => {
+    const isMe = m.sender_phone === currentUser?.phone;
+    const time = new Date(m.created_at).toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' });
+
+    if (m.sender_phone === 'SYSTEM') {
+      return `<div class="chat-system">${esc(m.message)}</div>`;
+    }
+
+    if (m.message.startsWith('GEO:')) {
+      const parts = m.message.substring(4).split('|');
+      const lat = parts[0], lng = parts[1], label = parts[2] || 'Локация';
+      return `<div class="chat-msg geo ${isMe?'me':'them'}">
+        <div class="chat-geo-map">📍</div>
+        <div class="chat-geo-body">
+          <div class="chat-geo-title">${esc(label)}</div>
+          <div class="chat-geo-coords">${esc(parseFloat(lat).toFixed(4))}, ${esc(parseFloat(lng).toFixed(4))}</div>
+        </div>
+        <a class="chat-geo-link" href="https://maps.google.com/?q=${encodeURIComponent(lat+','+lng)}" target="_blank">Открыть в картах →</a>
+      </div>`;
+    }
+
+    if (m.message.startsWith('CHECK:')) {
+      const parts = m.message.substring(6).split('|');
+      const items = parts.filter(p => !p.startsWith('TOTAL=')).map(p => {
+        const [k, v] = p.split('=');
+        return `<div class="chat-check-row"><span>${esc(k)}</span><span>${esc(v)}</span></div>`;
+      }).join('');
+      const total = parts.find(p => p.startsWith('TOTAL='))?.substring(6) || '';
+      return `<div class="chat-msg check">
+        <div class="chat-check-head">🧾 Чек оплаты</div>
+        <div class="chat-check-body">
+          ${items}
+          <div class="chat-check-row chat-check-total"><span>ИТОГО</span><span>${esc(total)}</span></div>
+        </div>
+      </div>`;
+    }
+
+    return `<div class="chat-msg ${isMe?'me':'them'}">${esc(m.message)}<span class="time">${time}</span></div>`;
+  }).join('');
+  body.scrollTop = body.scrollHeight;
+}
+
+async function sendMsg() {
+  const inp = document.getElementById('chatInput');
+  const text = inp.value.trim();
+  if (!text || !activeChatTrip || !currentUser) return;
+  inp.value = '';
+  try {
+    await sb.from('messages').insert({
+      trip_id: activeChatTrip.id,
+      sender_phone: currentUser.phone,
+      sender_name: currentUser.name,
+      message: text
+    });
+  } catch (e) {
+    showToast('Не отправлено', 'err');
+    inp.value = text;
+  }
+}
+
+function quickMsg(text) {
+  document.getElementById('attachMenu').classList.remove('show');
+  document.getElementById('chatInput').value = text;
+  sendMsg();
+}
+
+function toggleAttach() {
+  document.getElementById('attachMenu').classList.toggle('show');
+}
+
+async function sendGeo() {
+  document.getElementById('attachMenu').classList.remove('show');
+  if (!navigator.geolocation) { showToast('GPS недоступен', 'err'); return; }
+  if (!activeChatTrip || !currentUser) return;
+  showToast('📍 Получаем координаты...');
+
+  navigator.geolocation.getCurrentPosition(
+    async pos => {
+      try {
+        // Try to get address
+        let label = 'Моя локация';
+        try {
+          const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&accept-language=ru&zoom=14`;
+          const resp = await fetch(url);
+          const data = await resp.json();
+          if (data && data.address) {
+            const a = data.address;
+            label = a.road || a.suburb || a.city || a.town || a.village || 'Моя локация';
+          }
+        } catch {}
+
+        await sb.from('messages').insert({
+          trip_id: activeChatTrip.id,
+          sender_phone: currentUser.phone,
+          sender_name: currentUser.name,
+          message: `GEO:${pos.coords.latitude}|${pos.coords.longitude}|${label}`
+        });
+        showToast('📍 Локация отправлена!', 'ok');
+      } catch (e) {
+        showToast('Ошибка отправки', 'err');
+      }
+    },
+    () => { showToast('Не удалось получить локацию', 'err'); if(geoBtn){geoBtn.disabled=false;geoBtn.innerHTML='<i class="fas fa-location-arrow"></i>';} }
+  );
+}
+
+async function sendCheck() {
+  document.getElementById('attachMenu').classList.remove('show');
+  if (!activeChatTrip || !currentUser) return;
+  const t = activeChatTrip;
+  const total = (t.ride_cost || 0) + Math.round((t.ride_cost || 0) * 0.05);
+  const checkMsg = `CHECK:Маршрут=${t.from_city} → ${t.to_city}|Дата=${formatDate(t.depart_date)}|Время=${(t.depart_time || '').substring(0,5)}|Цена=${t.ride_cost} сом|Комиссия=${Math.round((t.ride_cost || 0)*0.05)} сом|TOTAL=${total} сом`;
+  try {
+    await sb.from('messages').insert({
+      trip_id: t.id,
+      sender_phone: currentUser.phone,
+      sender_name: currentUser.name,
+      message: checkMsg
+    });
+    showToast('🧾 Чек отправлен', 'ok');
+  } catch (e) {
+    showToast('Ошибка', 'err');
+  }
+}
+
+function callDriver() {
+  if (!activeChatTrip) return;
+  if (confirm('Позвонить ' + activeChatTrip.driver_name + '?')) {
+    window.location.href = 'tel:' + activeChatTrip.driver_phone;
+  }
+}
+
+// ════════════════════════════════════════════════
+//  COURIER REG
+// ════════════════════════════════════════════════
+function openCourierModal() {
+  if (!requireAuth()) return;
+  document.getElementById('courierModal').classList.add('show');
+}
+function closeCourierModal() {
+  document.getElementById('courierModal').classList.remove('show');
+}
+
+function handleFileUpload(inp, zoneId) {
+  const file = inp.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { showToast('⚠️ Файл больше 5 МБ', 'warn'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const zone = document.getElementById(zoneId);
+    zone.innerHTML = `<img src="${e.target.result}" alt="preview"><div style="font-size:11px;color:var(--green);margin-top:4px;font-weight:700">✓ Загружено</div>`;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function submitCourierReg() {
+  const name = document.getElementById('crName').value.trim();
+  const phone = document.getElementById('crPhone').value.trim();
+  const car = document.getElementById('crCar').value.trim();
+  const plate = document.getElementById('crPlate').value.trim();
+  const routes = document.getElementById('crRoutes').value.trim();
+
+  if (!name || !phone) { showToast('⚠️ Заполните имя и телефон', 'warn'); return; }
+  if (!car) { showToast('⚠️ Укажите марку машины', 'warn'); return; }
+
+  try {
+    if (sb) {
+      const { error } = await sb.from('users_happy').update({
+        is_courier: true,
+        car_model: car
+      }).eq('phone', currentUser.phone);
+      if (error) { showToast(handleSupabaseError(error, 'users_happy'), 'err'); return; }
+    }
+    closeCourierModal();
+    showToast('✅ Заявка отправлена! Проверка 24 часа.', 'ok');
+  } catch (e) {
+    showToast(handleSupabaseError(e, 'users_happy'), 'err');
+  }
+}
+
+// ════════════════════════════════════════════════
+//  ADMIN
+// ════════════════════════════════════════════════
+function goAdmin() {
+  if(!currentUser||currentUser.phone!==ADMIN_PHONE){showToast('Нет доступа','err');return;}
+  switchTab('admin');
+  loadAdminData();
+}
+
+async function loadAdminData() {
+  if (!sb) return;
+  try {
+    const [users, trips, bookings] = await Promise.all([
+      sb.from('users_happy').select('*').then(r => r.data || []),
+      sb.from('trips').select('*').then(r => r.data || []),
+      sb.from('bookings').select('*').then(r => r.data || [])
+    ]);
+    allUsers = users;
+    allBookings = bookings;
+
+    document.getElementById('adm-users').textContent = users.length;
+    document.getElementById('adm-trips').textContent = trips.length;
+    document.getElementById('adm-bookings').textContent = bookings.length;
+    const revenue = bookings.filter(b => b.status !== 'cancelled').reduce((sum, b) => sum + Math.round((b.total_cost || 0) * 0.05), 0);
+    document.getElementById('adm-revenue').textContent = revenue;
+
+    renderAdminUsers(users);
+    renderAdminTrips(trips);
+  } catch (e) { console.error(e); }
+}
+
+function renderAdminUsers(users) {
+  const c = document.getElementById('adminUsersList');
+  c.innerHTML = users.map(u => `
+    <div class="my-trip-card">
+      <div class="my-trip-top">
+        <div class="my-trip-ava" style="background:${esc(u.avatar_color || '#10b981')}">${esc(u.name.charAt(0).toUpperCase())}</div>
+        <div class="my-trip-info">
+          <div class="my-trip-route">${esc(u.name)}</div>
+          <div class="my-trip-meta">${esc(u.phone)} · ⭐ ${(u.rating || 5).toFixed(1)}</div>
+        </div>
+        ${u.is_courier ? '<div class="my-trip-status confirmed">🚗 Водитель</div>' : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderAdminTrips(trips) {
+  const c = document.getElementById('adminTripsList');
+  c.innerHTML = trips.map(t => `
+    <div class="my-trip-card">
+      <div class="my-trip-top">
+        <div class="my-trip-ava" style="background:${esc(t.driver_color || '#10b981')}">${esc((t.driver_name || '?').charAt(0))}</div>
+        <div class="my-trip-info">
+          <div class="my-trip-route">${esc(t.from_city)} → ${esc(t.to_city)}</div>
+          <div class="my-trip-meta">${esc(t.driver_name)} · ${formatDate(t.depart_date)}</div>
+          <div style="font-size:11px;font-weight:700;color:var(--green);margin-top:2px">${t.ride_cost} сом · ${t.seats_available}/${t.seats_total} мест</div>
+        </div>
+        <div class="my-trip-status ${t.status === 'active' ? 'confirmed' : 'cancelled'}">${t.status === 'active' ? 'Активна' : t.status}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function switchAdminTab(btn, tab) {
+  document.querySelectorAll('#screen-admin .tab-link').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('adminStatsTab').style.display = tab === 'stats' ? 'block' : 'none';
+  document.getElementById('adminUsersTab').style.display = tab === 'users' ? 'block' : 'none';
+  document.getElementById('adminTripsTab').style.display = tab === 'trips' ? 'block' : 'none';
+}
+
+// ════════════════════════════════════════════════
+//  THEME
+// ════════════════════════════════════════════════
+function toggleTheme() {
+  document.body.classList.toggle('dark');
+  localStorage.setItem('tachikput_dark', document.body.classList.contains('dark'));
+}
+
+// ════════════════════════════════════════════════
+//  HELP CENTER
+// ════════════════════════════════════════════════
+function switchHelpTab(btn, tab) {
+  document.querySelectorAll('#screen-help .tab-link').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.help-tab-content').forEach(c => c.style.display = 'none');
+  const el = document.getElementById('helpTab-' + tab);
+  if (el) { el.style.display = 'block'; el.style.animation = 'none'; void el.offsetWidth; el.style.animation = ''; }
+
+  // Start typing animation when howto tab opens
+  if (tab === 'howto') setTimeout(startTypingAnimations, 200);
+}
+
+function toggleGuideStep(el) {
+  el.classList.toggle('open');
+  if (el.classList.contains('open')) startTypingAnimations();
+}
+
+function startTypingAnimations() {
+  document.querySelectorAll('.typing-text[data-text]').forEach(el => {
+    if (el._typed) return;
+    el._typed = true;
+    const text = el.dataset.text;
+    let i = 0;
+    el.textContent = '';
+    const t = setInterval(() => {
+      if (i < text.length) { el.textContent += text[i++]; }
+      else clearInterval(t);
+    }, 50);
+  });
+  document.querySelectorAll('.typing-text2[data-text]').forEach(el => {
+    if (el._typed) return;
+    el._typed = true;
+    const text = el.dataset.text;
+    let i = 0;
+    el.textContent = '';
+    setTimeout(() => {
+      const t = setInterval(() => {
+        if (i < text.length) { el.textContent += text[i++]; }
+        else clearInterval(t);
+      }, 45);
+    }, 600);
+  });
+}
+
+// Support chat AI responses
+const SUPPORT_ANSWERS = {
+  'найти поездку': 'Введите «Откуда» и «Куда» на главной странице, затем нажмите «Найти поездку». Убедитесь что адрес введён правильно. Можно выбрать точку на карте кнопкой 📍',
+  'оплат': 'Принимаем наличные (при поездке) и карту (онлайн). При оплате картой деньги возвращаются автоматически если поездка отменена.',
+  'водитель не приехал': 'Сначала напишите водителю в чат. Если нет ответа — отмените бронь в разделе «Мои поездки». Деньги вернутся автоматически.',
+  'стать водителем': 'Зайдите в Профиль → «Стать водителем». Загрузите фото паспорта и машины. Заявка проверяется за 24 часа.',
+  'default': null  // генерируется динамически
+};
+
+function sendSupportMsg() {
+  const inp = document.getElementById('supportInput');
+  const msgs = document.getElementById('supportChatMsgs');
+  const q = inp.value.trim();
+  if (!q) return;
+
+  // User message
+  const userEl = document.createElement('div');
+  userEl.className = 'sup-msg user';
+  userEl.textContent = q;
+  msgs.appendChild(userEl);
+  inp.value = '';
+  msgs.scrollTop = msgs.scrollHeight;
+
+  // Hide quick buttons
+  document.getElementById('supportQuickBtns').style.display = 'none';
+
+  // Bot typing indicator
+  const typingEl = document.createElement('div');
+  typingEl.className = 'sup-msg bot';
+  typingEl.innerHTML = '<i class="fas fa-spinner fa-spin" style="color:var(--green)"></i> Печатает...';
+  msgs.appendChild(typingEl);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  setTimeout(() => {
+    const lower = q.toLowerCase();
+    let answer = 'Спасибо за обращение! Ваш вопрос принят. Оператор свяжется с вами в течение 15 минут. Код: #' + Math.floor(1000 + Math.random() * 9000);
+    for (const [key, val] of Object.entries(SUPPORT_ANSWERS)) {
+      if (key !== 'default' && val && lower.includes(key)) { answer = val; break; }
+    }
+    typingEl.innerHTML = answer;
+    msgs.scrollTop = msgs.scrollHeight;
+  }, 1200);
+}
+
+function supportQuick(question) {
+  document.getElementById('supportInput').value = question;
+  sendSupportMsg();
+}
+
+// ════════════════════════════════════════════════
+//  FAQ
+// ════════════════════════════════════════════════
+function toggleFaq(el) {
+  el.classList.toggle('active');
+  el.nextElementSibling.classList.toggle('active');
+}
+
+// ════════════════════════════════════════════════
+//  NAVIGATION
+// ════════════════════════════════════════════════
+function switchTab(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const nav = document.querySelector(`.nav-item[data-screen="${id}"]`);
+  if (nav) nav.classList.add('active');
+  if (id === 'home') {
+    if (!map) initMap();
+    else setTimeout(() => map.invalidateSize(), 100);
+  }
+  if (id === 'trips') { switchTripsMode('passenger',document.getElementById('subtabPassenger')); loadMyTrips(); }
+  if (id === 'offer') resetOfferForm();
+  if (id === 'profile') renderProfile();
+}
+
+// ════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════
+async function init() {
+  // Load user
+  try {
+    const saved = localStorage.getItem('tachikput_user');
+    if (saved) currentUser = JSON.parse(saved);
+  } catch {}
+
+  // Theme
+  if (localStorage.getItem('tachikput_dark') === 'true') document.body.classList.add('dark');
+
+  // Map — инициализируем сразу, не через таймер
+  initMap();
+
+  // Default date
+  const today = new Date().toISOString().split('T')[0];
+  const dateInp = document.getElementById('offerDate');
+  if (dateInp) dateInp.value = today;
+
+  // Load data
+  document.getElementById('loadingText').textContent = 'Загружаем поездки...';
+  await loadTrips();
+  if (currentUser) await loadMyBookings();
+
+  // Realtime
+  setupRealtime();
+
+  renderProfile();
+
+  // Hide loading
+  setTimeout(() => document.getElementById('loadingOverlay').classList.add('hide'), 400);
+}
+
+// Modal click outside to close
+document.querySelectorAll('.modal-bg').forEach(bg => {
+  bg.addEventListener('click', e => { if (e.target === bg) bg.classList.remove('show'); });
+});
+
+window.addEventListener('load', init);
+</script>
+</body>
+</html>
