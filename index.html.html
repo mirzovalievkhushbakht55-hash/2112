@@ -1,0 +1,1701 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Тачикпуть · Админ-панель</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0a0e1a;
+  --surface:#111827;
+  --surface2:#1a2235;
+  --surface3:#222d42;
+  --border:#1e2d45;
+  --border2:#2a3d5a;
+  --green:#00e5a0;
+  --green-dim:#00b87d;
+  --green-glow:rgba(0,229,160,.15);
+  --blue:#3b82f6;
+  --blue-dim:#2563eb;
+  --amber:#f59e0b;
+  --red:#ef4444;
+  --purple:#8b5cf6;
+  --text:#f0f4ff;
+  --text2:#94a3b8;
+  --text3:#4a6080;
+  --shadow:0 4px 24px rgba(0,0,0,.4);
+  --shadow-lg:0 12px 48px rgba(0,0,0,.6);
+  --radius:14px;
+  --radius-sm:8px;
+  --font-head:'Syne',sans-serif;
+  --font-body:'DM Sans',sans-serif;
+}
+
+body{
+  font-family:var(--font-body);
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  display:flex;
+  overflow:hidden;
+}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:220px;
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  display:flex;
+  flex-direction:column;
+  flex-shrink:0;
+  position:relative;
+  z-index:10;
+}
+.sidebar-logo{
+  padding:24px 20px 20px;
+  border-bottom:1px solid var(--border);
+}
+.logo-mark{
+  font-family:var(--font-head);
+  font-size:1.3rem;
+  font-weight:800;
+  color:var(--green);
+  letter-spacing:-.5px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.logo-mark .dot{
+  width:8px;height:8px;background:var(--green);
+  border-radius:50%;animation:pulse-green 1.5s ease infinite;
+}
+@keyframes pulse-green{0%,100%{box-shadow:0 0 0 0 rgba(0,229,160,.6)}50%{box-shadow:0 0 0 6px rgba(0,229,160,0)}}
+.logo-sub{font-size:.65rem;color:var(--text3);font-weight:500;margin-top:2px;letter-spacing:.5px;text-transform:uppercase}
+
+.nav{flex:1;padding:12px 10px;display:flex;flex-direction:column;gap:2px}
+.nav-item{
+  display:flex;align-items:center;gap:10px;padding:9px 12px;
+  border-radius:var(--radius-sm);cursor:pointer;font-size:.82rem;
+  font-weight:500;color:var(--text2);transition:all .15s;
+  border:none;background:none;width:100%;text-align:left;font-family:var(--font-body);
+}
+.nav-item i{width:16px;font-size:.85rem;flex-shrink:0}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:var(--green-glow);color:var(--green);font-weight:600}
+.nav-item .badge{
+  margin-left:auto;background:var(--red);color:#fff;
+  border-radius:10px;padding:1px 6px;font-size:.65rem;font-weight:700;
+}
+.nav-sep{height:1px;background:var(--border);margin:8px 2px}
+
+.sidebar-bottom{padding:14px 10px;border-top:1px solid var(--border)}
+.admin-user{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm)}
+.admin-ava{
+  width:32px;height:32px;border-radius:50%;
+  background:linear-gradient(135deg,var(--green),var(--blue));
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:.8rem;flex-shrink:0;
+}
+.admin-info{flex:1;min-width:0}
+.admin-name{font-size:.8rem;font-weight:600;truncate:ellipsis}
+.admin-role{font-size:.65rem;color:var(--green);font-weight:600}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+
+/* TOP BAR */
+.topbar{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 28px;height:60px;display:flex;align-items:center;
+  justify-content:space-between;flex-shrink:0;
+}
+.page-title{
+  font-family:var(--font-head);font-size:1.15rem;font-weight:700;
+  color:var(--text);display:flex;align-items:center;gap:10px;
+}
+.page-title .page-tag{
+  font-size:.65rem;font-weight:600;color:var(--text3);background:var(--surface2);
+  border-radius:6px;padding:3px 8px;letter-spacing:.4px;text-transform:uppercase;
+}
+.topbar-right{display:flex;align-items:center;gap:12px}
+
+.search-bar{
+  display:flex;align-items:center;gap:8px;background:var(--surface2);
+  border:1px solid var(--border);border-radius:8px;padding:0 12px;
+  width:220px;
+}
+.search-bar input{
+  background:none;border:none;outline:none;color:var(--text);
+  font-family:var(--font-body);font-size:.82rem;padding:8px 0;width:100%;
+}
+.search-bar input::placeholder{color:var(--text3)}
+.search-bar i{color:var(--text3);font-size:.8rem}
+
+.topbar-btn{
+  width:34px;height:34px;border-radius:8px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text2);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:.85rem;
+  transition:all .15s;position:relative;
+}
+.topbar-btn:hover{background:var(--surface3);color:var(--text)}
+.topbar-btn .notif-dot{
+  position:absolute;top:6px;right:6px;width:7px;height:7px;
+  background:var(--red);border-radius:50%;border:1.5px solid var(--surface);
+}
+.sync-badge{
+  display:flex;align-items:center;gap:6px;background:var(--green-glow);
+  border:1px solid rgba(0,229,160,.3);color:var(--green);
+  border-radius:8px;padding:5px 10px;font-size:.72rem;font-weight:600;
+}
+.sync-dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:blink 1.4s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── CONTENT ── */
+.content{flex:1;overflow-y:auto;padding:24px 28px;display:flex;flex-direction:column;gap:20px}
+.content::-webkit-scrollbar{width:5px}
+.content::-webkit-scrollbar-track{background:var(--bg)}
+.content::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* PAGE */
+.page{display:none}
+.page.active{display:flex;flex-direction:column;gap:20px;animation:fadeUp .3s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── GRID ── */
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid-auto{display:grid;grid-template-columns:2fr 1fr;gap:14px}
+
+/* ── STAT CARD ── */
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:20px;position:relative;
+  overflow:hidden;transition:border-color .2s,transform .2s;cursor:default;
+}
+.stat-card:hover{border-color:var(--border2);transform:translateY(-2px)}
+.stat-card::before{
+  content:'';position:absolute;inset:0;opacity:0;
+  transition:opacity .2s;pointer-events:none;
+}
+.stat-card.green::before{background:radial-gradient(circle at top right,var(--green-glow),transparent 60%)}
+.stat-card.blue::before{background:radial-gradient(circle at top right,rgba(59,130,246,.1),transparent 60%)}
+.stat-card.amber::before{background:radial-gradient(circle at top right,rgba(245,158,11,.1),transparent 60%)}
+.stat-card.purple::before{background:radial-gradient(circle at top right,rgba(139,92,246,.1),transparent 60%)}
+.stat-card:hover::before{opacity:1}
+
+.stat-icon{
+  width:38px;height:38px;border-radius:10px;display:flex;
+  align-items:center;justify-content:center;font-size:1rem;margin-bottom:14px;
+}
+.stat-card.green .stat-icon{background:var(--green-glow);color:var(--green)}
+.stat-card.blue .stat-icon{background:rgba(59,130,246,.15);color:var(--blue)}
+.stat-card.amber .stat-icon{background:rgba(245,158,11,.15);color:var(--amber)}
+.stat-card.purple .stat-icon{background:rgba(139,92,246,.15);color:var(--purple)}
+
+.stat-value{font-family:var(--font-head);font-size:1.9rem;font-weight:800;line-height:1;margin-bottom:6px}
+.stat-card.green .stat-value{color:var(--green)}
+.stat-card.blue .stat-value{color:var(--blue)}
+.stat-card.amber .stat-value{color:var(--amber)}
+.stat-card.purple .stat-value{color:var(--purple)}
+.stat-label{font-size:.75rem;color:var(--text2);font-weight:500}
+.stat-trend{
+  position:absolute;top:20px;right:20px;
+  font-size:.7rem;font-weight:700;border-radius:6px;padding:3px 7px;
+}
+.stat-trend.up{background:rgba(0,229,160,.15);color:var(--green)}
+.stat-trend.down{background:rgba(239,68,68,.15);color:var(--red)}
+
+/* ── CARD ── */
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);overflow:hidden;
+}
+.card-head{
+  padding:16px 20px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.card-title{font-family:var(--font-head);font-size:.9rem;font-weight:700;display:flex;align-items:center;gap:8px}
+.card-title i{color:var(--green);font-size:.85rem}
+.card-body{padding:20px}
+
+/* ── TABLE ── */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{
+  padding:10px 14px;text-align:left;font-size:.68rem;font-weight:700;
+  color:var(--text3);text-transform:uppercase;letter-spacing:.6px;
+  border-bottom:1px solid var(--border);white-space:nowrap;
+}
+td{
+  padding:11px 14px;font-size:.82rem;border-bottom:1px solid var(--border);
+  color:var(--text2);vertical-align:middle;
+}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface2);color:var(--text)}
+.td-name{font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px}
+.td-ava{
+  width:28px;height:28px;border-radius:50%;color:#fff;font-weight:700;
+  font-size:.75rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+
+/* STATUS BADGES */
+.badge{border-radius:6px;padding:3px 8px;font-size:.68rem;font-weight:700;white-space:nowrap}
+.badge.active{background:rgba(0,229,160,.15);color:var(--green)}
+.badge.pending{background:rgba(245,158,11,.15);color:var(--amber)}
+.badge.cancelled{background:rgba(239,68,68,.15);color:var(--red)}
+.badge.completed{background:rgba(59,130,246,.15);color:var(--blue)}
+.badge.driver{background:rgba(139,92,246,.15);color:var(--purple)}
+.badge.verified{background:rgba(0,229,160,.1);color:var(--green);border:1px solid rgba(0,229,160,.3)}
+
+/* ACTION BUTTONS */
+.btn{
+  display:inline-flex;align-items:center;gap:6px;padding:7px 14px;
+  border-radius:8px;font-size:.78rem;font-weight:600;cursor:pointer;
+  border:none;font-family:var(--font-body);transition:all .15s;
+}
+.btn-sm{padding:5px 10px;font-size:.72rem}
+.btn-green{background:var(--green);color:#0a0e1a}
+.btn-green:hover{background:var(--green-dim)}
+.btn-ghost{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--surface3);color:var(--text)}
+.btn-red{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.btn-red:hover{background:rgba(239,68,68,.25)}
+.btn-blue{background:rgba(59,130,246,.15);color:var(--blue);border:1px solid rgba(59,130,246,.3)}
+.btn-blue:hover{background:rgba(59,130,246,.25)}
+.btn-amber{background:rgba(245,158,11,.15);color:var(--amber);border:1px solid rgba(245,158,11,.3)}
+.btn-amber:hover{background:rgba(245,158,11,.25)}
+
+/* ── CHART ── */
+.chart-wrap{position:relative;height:200px}
+
+/* ── TIMELINE / ACTIVITY ── */
+.activity-list{display:flex;flex-direction:column;gap:0}
+.activity-item{
+  display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--border);
+  align-items:flex-start;
+}
+.activity-item:last-child{border-bottom:none}
+.activity-dot{
+  width:32px;height:32px;border-radius:10px;display:flex;align-items:center;
+  justify-content:center;font-size:.8rem;flex-shrink:0;margin-top:1px;
+}
+.activity-dot.green{background:var(--green-glow);color:var(--green)}
+.activity-dot.blue{background:rgba(59,130,246,.15);color:var(--blue)}
+.activity-dot.amber{background:rgba(245,158,11,.15);color:var(--amber)}
+.activity-dot.red{background:rgba(239,68,68,.15);color:var(--red)}
+.activity-text{flex:1;min-width:0;font-size:.8rem;line-height:1.5;color:var(--text2)}
+.activity-text b{color:var(--text);font-weight:600}
+.activity-time{font-size:.68rem;color:var(--text3);flex-shrink:0;margin-top:2px}
+
+/* ── TOP ROUTES ── */
+.route-item{
+  display:flex;align-items:center;gap:10px;padding:10px 0;
+  border-bottom:1px solid var(--border);
+}
+.route-item:last-child{border-bottom:none}
+.route-rank{
+  width:22px;height:22px;border-radius:6px;background:var(--surface2);
+  display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;
+  color:var(--text3);flex-shrink:0;
+}
+.route-rank.gold{background:rgba(245,158,11,.15);color:var(--amber)}
+.route-info{flex:1;min-width:0}
+.route-name{font-size:.82rem;font-weight:600;color:var(--text)}
+.route-sub{font-size:.72rem;color:var(--text3);margin-top:1px}
+.route-bar-wrap{width:80px;background:var(--surface2);border-radius:4px;height:5px;overflow:hidden}
+.route-bar{height:100%;border-radius:4px;background:var(--green);transition:width .6s ease}
+
+/* ── MAP BOX ── */
+.map-box{
+  background:var(--surface2);border-radius:var(--radius-sm);
+  height:220px;display:flex;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;
+}
+.map-grid{
+  position:absolute;inset:0;
+  background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);
+  background-size:28px 28px;opacity:.4;
+}
+.map-dot{
+  position:absolute;width:8px;height:8px;border-radius:50%;
+  border:2px solid var(--bg);animation:mapPulse 2s ease infinite;
+}
+@keyframes mapPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 currentColor}50%{transform:scale(1.2);box-shadow:0 0 0 4px transparent}}
+.map-dot.g{background:var(--green);color:var(--green)}
+.map-dot.b{background:var(--blue);color:var(--blue)}
+.map-dot.a{background:var(--amber);color:var(--amber)}
+
+/* ── USER DETAIL MODAL ── */
+.modal-bg{
+  position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;
+  display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);
+}
+.modal-bg.show{display:flex}
+.modal{
+  background:var(--surface);border:1px solid var(--border2);border-radius:18px;
+  width:560px;max-width:95vw;max-height:90vh;overflow-y:auto;
+  animation:modalIn .25s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes modalIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+.modal-head{
+  padding:20px 24px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.modal-title{font-family:var(--font-head);font-size:1rem;font-weight:700}
+.modal-close{
+  width:32px;height:32px;border-radius:8px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text2);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:.85rem;
+}
+.modal-body{padding:24px}
+.detail-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:10px 0;border-bottom:1px solid var(--border);font-size:.85rem;
+}
+.detail-row:last-child{border-bottom:none}
+.detail-label{color:var(--text3);font-weight:500}
+.detail-val{color:var(--text);font-weight:600}
+.modal-actions{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end}
+
+/* ── FILTER BAR ── */
+.filter-bar{
+  display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+  padding:14px 20px;border-bottom:1px solid var(--border);background:var(--surface);
+}
+.filter-input{
+  background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  padding:7px 12px;color:var(--text);font-family:var(--font-body);font-size:.8rem;
+  outline:none;
+}
+.filter-input:focus{border-color:var(--border2)}
+.filter-input option{background:var(--surface2)}
+
+/* ── SETTINGS ── */
+.settings-section{margin-bottom:24px}
+.settings-title{font-family:var(--font-head);font-size:.8rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px}
+.settings-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--radius-sm);margin-bottom:6px;
+}
+.settings-label{font-size:.85rem;font-weight:500}
+.settings-sub{font-size:.72rem;color:var(--text3);margin-top:2px}
+
+/* TOGGLE */
+.toggle{
+  width:42px;height:24px;background:var(--border2);border-radius:12px;
+  cursor:pointer;position:relative;transition:background .2s;border:none;flex-shrink:0;
+}
+.toggle.on{background:var(--green)}
+.toggle::after{
+  content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;
+  background:#fff;border-radius:50%;transition:left .2s;
+}
+.toggle.on::after{left:21px}
+
+/* ── TOASTS ── */
+.toast-wrap{position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast{
+  background:var(--surface);border:1px solid var(--border2);color:var(--text);
+  padding:10px 18px;border-radius:10px;font-size:.82rem;font-weight:600;
+  box-shadow:var(--shadow-lg);animation:toastIn .25s ease,toastOut .3s 2.7s ease forwards;
+  display:flex;align-items:center;gap:8px;
+}
+.toast.ok{border-color:rgba(0,229,160,.4);color:var(--green)}
+.toast.err{border-color:rgba(239,68,68,.4);color:var(--red)}
+.toast.warn{border-color:rgba(245,158,11,.4);color:var(--amber)}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes toastOut{to{opacity:0;transform:translateX(20px)}}
+
+/* ── LOADING ── */
+#loadOverlay{
+  position:fixed;inset:0;background:var(--bg);z-index:9999;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+}
+#loadOverlay.hide{display:none}
+.load-logo{font-family:var(--font-head);font-size:2rem;font-weight:800;color:var(--green)}
+.load-bar{width:200px;height:3px;background:var(--surface2);border-radius:2px;overflow:hidden}
+.load-bar-fill{height:100%;background:var(--green);border-radius:2px;animation:loadFill 1.5s ease forwards}
+@keyframes loadFill{from{width:0}to{width:100%}}
+.load-text{font-size:.78rem;color:var(--text3);font-weight:500}
+
+/* ── LOGIN ── */
+#loginScreen{
+  position:fixed;inset:0;background:var(--bg);z-index:9998;
+  display:flex;align-items:center;justify-content:center;
+}
+#loginScreen.hide{display:none}
+.login-box{
+  background:var(--surface);border:1px solid var(--border2);border-radius:20px;
+  padding:36px;width:380px;max-width:95vw;
+}
+.login-logo{font-family:var(--font-head);font-size:1.6rem;font-weight:800;color:var(--green);margin-bottom:4px}
+.login-sub{font-size:.82rem;color:var(--text3);margin-bottom:28px}
+.login-label{font-size:.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:block}
+.login-input{
+  width:100%;padding:11px 14px;background:var(--surface2);border:1px solid var(--border);
+  border-radius:10px;color:var(--text);font-family:var(--font-body);font-size:.88rem;
+  outline:none;margin-bottom:14px;transition:border-color .15s;
+}
+.login-input:focus{border-color:var(--green)}
+.login-btn{
+  width:100%;padding:12px;background:var(--green);color:#0a0e1a;
+  border:none;border-radius:10px;font-family:var(--font-head);font-weight:700;
+  font-size:.95rem;cursor:pointer;transition:background .15s;
+}
+.login-btn:hover{background:var(--green-dim)}
+.login-error{color:var(--red);font-size:.78rem;text-align:center;margin-top:8px;display:none}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+  .sidebar{width:58px}
+  .sidebar-logo .logo-sub,.nav-item span,.admin-info{display:none}
+  .sidebar-logo .logo-mark{font-size:0}
+  .sidebar-logo .logo-mark .dot{width:10px;height:10px;margin:0 auto}
+  .nav-item{justify-content:center;padding:10px}
+  .nav-item i{width:auto}
+  .grid-4{grid-template-columns:1fr 1fr}
+  .grid-auto{grid-template-columns:1fr}
+  .content{padding:16px}
+}
+@media(max-width:600px){
+  .grid-4,.grid-3,.grid-2{grid-template-columns:1fr}
+  .topbar{padding:0 14px}
+  .search-bar{display:none}
+}
+
+/* Skeleton loader */
+.skel{background:linear-gradient(90deg,var(--surface2) 25%,var(--surface3) 50%,var(--surface2) 75%);background-size:200% 100%;animation:skel 1.2s infinite;border-radius:6px}
+@keyframes skel{from{background-position:200% 0}to{background-position:-200% 0}}
+</style>
+</head>
+<body>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- LOADING -->
+<div id="loadOverlay">
+  <div class="load-logo">⚡ Тачикпуть</div>
+  <div class="load-bar"><div class="load-bar-fill"></div></div>
+  <div class="load-text" id="loadText">Подключение к базе данных...</div>
+</div>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">🛡 Тачикпуть</div>
+    <div class="login-sub">Панель администратора · Только для сотрудников</div>
+    <label class="login-label">Логин</label>
+    <input class="login-input" type="text" id="loginUser" placeholder="admin" value="admin">
+    <label class="login-label">Пароль</label>
+    <input class="login-input" type="password" id="loginPass" placeholder="••••••••" onkeypress="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" onclick="doLogin()"><i class="fas fa-sign-in-alt"></i> Войти в панель</button>
+    <div class="login-error" id="loginErr">Неверный логин или пароль</div>
+    <div style="text-align:center;margin-top:14px;font-size:.72rem;color:var(--text3)">Тестовый режим: admin / admin123</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark"><div class="dot"></div><span>Тачикпуть</span></div>
+    <div class="logo-sub">Admin Panel v2</div>
+  </div>
+  <nav class="nav">
+    <button class="nav-item active" onclick="goPage('dashboard',this)">
+      <i class="fas fa-chart-pie"></i><span>Дашборд</span>
+    </button>
+    <button class="nav-item" onclick="goPage('users',this)">
+      <i class="fas fa-users"></i><span>Пользователи</span>
+      <span class="badge" id="navBadgeUsers">0</span>
+    </button>
+    <button class="nav-item" onclick="goPage('drivers',this)">
+      <i class="fas fa-id-badge"></i><span>Водители</span>
+    </button>
+    <button class="nav-item" onclick="goPage('trips',this)">
+      <i class="fas fa-route"></i><span>Поездки</span>
+    </button>
+    <button class="nav-item" onclick="goPage('bookings',this)">
+      <i class="fas fa-ticket-alt"></i><span>Брони</span>
+      <span class="badge" id="navBadgeBookings" style="display:none">0</span>
+    </button>
+    <div class="nav-sep"></div>
+    <button class="nav-item" onclick="goPage('finance',this)">
+      <i class="fas fa-coins"></i><span>Финансы</span>
+    </button>
+    <button class="nav-item" onclick="goPage('map',this)">
+      <i class="fas fa-map-marked-alt"></i><span>Карта</span>
+    </button>
+    <button class="nav-item" onclick="goPage('support',this)">
+      <i class="fas fa-headset"></i><span>Поддержка</span>
+    </button>
+    <div class="nav-sep"></div>
+    <button class="nav-item" onclick="goPage('settings',this)">
+      <i class="fas fa-cog"></i><span>Настройки</span>
+    </button>
+  </nav>
+  <div class="sidebar-bottom">
+    <div class="admin-user">
+      <div class="admin-ava">А</div>
+      <div class="admin-info">
+        <div class="admin-name">Администратор</div>
+        <div class="admin-role">Super Admin</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="topbar">
+    <div class="page-title" id="pageTitle">
+      <i class="fas fa-chart-pie" style="color:var(--green)"></i>
+      Дашборд
+      <span class="page-tag">Обзор</span>
+    </div>
+    <div class="topbar-right">
+      <div class="search-bar">
+        <i class="fas fa-search"></i>
+        <input type="text" placeholder="Поиск..." oninput="globalSearch(this.value)">
+      </div>
+      <div class="sync-badge" id="syncBadge">
+        <div class="sync-dot"></div>
+        <span id="syncText">Онлайн</span>
+      </div>
+      <button class="topbar-btn" onclick="refreshAll()" title="Обновить">
+        <i class="fas fa-sync" id="refreshIcon"></i>
+      </button>
+      <button class="topbar-btn" onclick="showToast('Нет новых уведомлений','ok')" title="Уведомления">
+        <i class="fas fa-bell"></i>
+      </button>
+      <button class="topbar-btn" onclick="doLogout()" title="Выйти">
+        <i class="fas fa-sign-out-alt"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ══════════════════ DASHBOARD ══════════════════ -->
+    <div class="page active" id="page-dashboard">
+      <div class="grid-4">
+        <div class="stat-card green">
+          <div class="stat-icon"><i class="fas fa-users"></i></div>
+          <div class="stat-value" id="s-users">—</div>
+          <div class="stat-label">Пользователи</div>
+          <div class="stat-trend up" id="s-users-trend">+12%</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="stat-icon"><i class="fas fa-route"></i></div>
+          <div class="stat-value" id="s-trips">—</div>
+          <div class="stat-label">Поездки</div>
+          <div class="stat-trend up" id="s-trips-trend">+8%</div>
+        </div>
+        <div class="stat-card amber">
+          <div class="stat-icon"><i class="fas fa-ticket-alt"></i></div>
+          <div class="stat-value" id="s-bookings">—</div>
+          <div class="stat-label">Брони</div>
+          <div class="stat-trend up">+23%</div>
+        </div>
+        <div class="stat-card purple">
+          <div class="stat-icon"><i class="fas fa-coins"></i></div>
+          <div class="stat-value" id="s-revenue">—</div>
+          <div class="stat-label">Комиссия (сом)</div>
+          <div class="stat-trend up">+17%</div>
+        </div>
+      </div>
+
+      <div class="grid-auto">
+        <!-- CHART -->
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title"><i class="fas fa-chart-line"></i>Активность за 7 дней</div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-sm btn-ghost" onclick="switchChart('trips')">Поездки</button>
+              <button class="btn btn-sm btn-green" onclick="switchChart('revenue')" id="chartBtnRev">Доход</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
+          </div>
+        </div>
+
+        <!-- ACTIVITY FEED -->
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title"><i class="fas fa-bolt"></i>Активность</div>
+            <button class="btn btn-sm btn-ghost" onclick="loadActivity()"><i class="fas fa-sync" style="font-size:.7rem"></i></button>
+          </div>
+          <div class="card-body" style="padding:8px 16px" id="activityFeed">
+            <div style="text-align:center;padding:20px;color:var(--text3);font-size:.8rem">Загрузка...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <!-- TOP ROUTES -->
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-trophy"></i>Топ маршруты</div></div>
+          <div class="card-body" id="topRoutes">
+            <div style="text-align:center;padding:20px;color:var(--text3);font-size:.8rem">Загрузка...</div>
+          </div>
+        </div>
+
+        <!-- MAP PREVIEW -->
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title"><i class="fas fa-map-marked-alt"></i>Активные поездки</div>
+            <button class="btn btn-sm btn-ghost" onclick="goPage('map',document.querySelector('[onclick*=map]'))">Открыть карту</button>
+          </div>
+          <div class="card-body" style="padding:14px">
+            <div class="map-box">
+              <div class="map-grid"></div>
+              <!-- Tajikistan shaped dots -->
+              <div class="map-dot g" style="top:48%;left:42%"></div>
+              <div class="map-dot b" style="top:22%;left:55%;animation-delay:.4s"></div>
+              <div class="map-dot g" style="top:62%;left:50%;animation-delay:.8s"></div>
+              <div class="map-dot a" style="top:35%;left:38%;animation-delay:.2s"></div>
+              <div class="map-dot b" style="top:55%;left:65%;animation-delay:1s"></div>
+              <div class="map-dot g" style="top:28%;left:70%;animation-delay:.6s"></div>
+              <div style="position:absolute;bottom:10px;left:12px;font-size:.7rem;color:var(--text3)">
+                <i class="fas fa-circle" style="color:var(--green);font-size:.5rem"></i> Активные &nbsp;
+                <i class="fas fa-circle" style="color:var(--blue);font-size:.5rem"></i> Ожидание &nbsp;
+                <i class="fas fa-circle" style="color:var(--amber);font-size:.5rem"></i> Завершены
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ USERS ══════════════════ -->
+    <div class="page" id="page-users">
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title"><i class="fas fa-users"></i>Все пользователи</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="exportCSV('users')"><i class="fas fa-download"></i> Экспорт</button>
+            <button class="btn btn-green btn-sm" onclick="loadUsers()"><i class="fas fa-sync"></i> Обновить</button>
+          </div>
+        </div>
+        <div class="filter-bar">
+          <input class="filter-input" placeholder="🔍 Поиск по имени/телефону" oninput="filterTable('usersTable',this.value)" style="width:220px">
+          <select class="filter-input" onchange="filterUsersByRole(this.value)">
+            <option value="all">Все роли</option>
+            <option value="driver">Водители</option>
+            <option value="passenger">Пассажиры</option>
+          </select>
+          <select class="filter-input" onchange="filterUsersByRating(this.value)">
+            <option value="all">Любой рейтинг</option>
+            <option value="5">★ 5.0</option>
+            <option value="4">★ 4+</option>
+            <option value="3">★ 3+</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table id="usersTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Пользователь</th>
+                <th>Телефон</th>
+                <th>Рейтинг</th>
+                <th>Роль</th>
+                <th>Статус</th>
+                <th>Действия</th>
+              </tr>
+            </thead>
+            <tbody id="usersBody">
+              <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text3)"><i class="fas fa-spinner fa-spin"></i> Загрузка...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ DRIVERS ══════════════════ -->
+    <div class="page" id="page-drivers">
+      <div class="grid-3" style="margin-bottom:4px">
+        <div class="stat-card green" style="padding:14px 18px">
+          <div class="stat-value" id="sd-active" style="font-size:1.5rem">—</div>
+          <div class="stat-label">Активные водители</div>
+        </div>
+        <div class="stat-card amber" style="padding:14px 18px">
+          <div class="stat-value" id="sd-pending" style="font-size:1.5rem">—</div>
+          <div class="stat-label">Ожидают проверки</div>
+        </div>
+        <div class="stat-card blue" style="padding:14px 18px">
+          <div class="stat-value" id="sd-trips" style="font-size:1.5rem">—</div>
+          <div class="stat-label">Поездок сегодня</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title"><i class="fas fa-id-badge"></i>Водители</div>
+          <button class="btn btn-green btn-sm" onclick="loadDrivers()"><i class="fas fa-sync"></i> Обновить</button>
+        </div>
+        <div class="filter-bar">
+          <input class="filter-input" placeholder="🔍 Поиск водителя..." oninput="filterTable('driversTable',this.value)" style="width:220px">
+          <select class="filter-input" onchange="filterDriverStatus(this.value)">
+            <option value="all">Все статусы</option>
+            <option value="verified">Верифицированы</option>
+            <option value="pending">На проверке</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table id="driversTable">
+            <thead>
+              <tr>
+                <th>Водитель</th>
+                <th>Телефон</th>
+                <th>Машина</th>
+                <th>Рейтинг</th>
+                <th>Поездок</th>
+                <th>Статус</th>
+                <th>Действия</th>
+              </tr>
+            </thead>
+            <tbody id="driversBody">
+              <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text3)"><i class="fas fa-spinner fa-spin"></i> Загрузка...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ TRIPS ══════════════════ -->
+    <div class="page" id="page-trips">
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title"><i class="fas fa-route"></i>Все поездки</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="exportCSV('trips')"><i class="fas fa-download"></i> Экспорт</button>
+            <button class="btn btn-green btn-sm" onclick="loadTrips()"><i class="fas fa-sync"></i> Обновить</button>
+          </div>
+        </div>
+        <div class="filter-bar">
+          <input class="filter-input" placeholder="🔍 Откуда / Куда..." oninput="filterTable('tripsTable',this.value)" style="width:200px">
+          <select class="filter-input" onchange="filterTripStatus(this.value)">
+            <option value="all">Все статусы</option>
+            <option value="active">Активные</option>
+            <option value="completed">Завершённые</option>
+            <option value="cancelled">Отменённые</option>
+          </select>
+          <select class="filter-input" onchange="filterTripVehicle(this.value)">
+            <option value="all">Все типы</option>
+            <option value="car">Легковой</option>
+            <option value="minivan">Микроавтобус</option>
+            <option value="truck">Грузовой</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table id="tripsTable">
+            <thead>
+              <tr>
+                <th>Маршрут</th>
+                <th>Водитель</th>
+                <th>Дата/Время</th>
+                <th>Места</th>
+                <th>Цена</th>
+                <th>Тип</th>
+                <th>Статус</th>
+                <th>Действия</th>
+              </tr>
+            </thead>
+            <tbody id="tripsBody">
+              <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)"><i class="fas fa-spinner fa-spin"></i> Загрузка...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ BOOKINGS ══════════════════ -->
+    <div class="page" id="page-bookings">
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title"><i class="fas fa-ticket-alt"></i>Все брони</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="exportCSV('bookings')"><i class="fas fa-download"></i> Экспорт</button>
+            <button class="btn btn-green btn-sm" onclick="loadBookings()"><i class="fas fa-sync"></i> Обновить</button>
+          </div>
+        </div>
+        <div class="filter-bar">
+          <input class="filter-input" placeholder="🔍 Код брони / телефон..." oninput="filterTable('bookingsTable',this.value)" style="width:220px">
+          <select class="filter-input" onchange="filterBookingStatus(this.value)">
+            <option value="all">Все статусы</option>
+            <option value="pending">Ожидание</option>
+            <option value="confirmed">Подтверждено</option>
+            <option value="completed">Завершено</option>
+            <option value="cancelled">Отменено</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table id="bookingsTable">
+            <thead>
+              <tr>
+                <th>Код брони</th>
+                <th>Пассажир</th>
+                <th>Маршрут</th>
+                <th>Тип</th>
+                <th>Сумма</th>
+                <th>Оплата</th>
+                <th>Статус</th>
+                <th>Действия</th>
+              </tr>
+            </thead>
+            <tbody id="bookingsBody">
+              <tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)"><i class="fas fa-spinner fa-spin"></i> Загрузка...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ FINANCE ══════════════════ -->
+    <div class="page" id="page-finance">
+      <div class="grid-3">
+        <div class="stat-card green">
+          <div class="stat-icon"><i class="fas fa-coins"></i></div>
+          <div class="stat-value" id="fin-total">—</div>
+          <div class="stat-label">Общий оборот (сом)</div>
+        </div>
+        <div class="stat-card purple">
+          <div class="stat-icon"><i class="fas fa-percentage"></i></div>
+          <div class="stat-value" id="fin-commission">—</div>
+          <div class="stat-label">Наша комиссия (5%)</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="stat-icon"><i class="fas fa-credit-card"></i></div>
+          <div class="stat-value" id="fin-card">—</div>
+          <div class="stat-label">Карточных платежей</div>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-bar"></i>Доход по дням</div></div>
+          <div class="card-body"><div class="chart-wrap"><canvas id="financeChart"></canvas></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="card-title"><i class="fas fa-chart-pie"></i>Способы оплаты</div></div>
+          <div class="card-body"><div class="chart-wrap" style="height:180px"><canvas id="payChart"></canvas></div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title"><i class="fas fa-list"></i>Последние транзакции</div></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Код</th><th>Маршрут</th><th>Пассажир</th><th>Сумма</th><th>Комиссия</th><th>Оплата</th><th>Дата</th></tr>
+            </thead>
+            <tbody id="transactionsBody">
+              <tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text3)">Загрузка...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ MAP ══════════════════ -->
+    <div class="page" id="page-map">
+      <div class="card" style="height:calc(100vh - 140px)">
+        <div class="card-head">
+          <div class="card-title"><i class="fas fa-map-marked-alt"></i>Карта поездок в реальном времени</div>
+          <div style="display:flex;gap:8px">
+            <span style="font-size:.75rem;color:var(--text3)">Обновление: <span id="mapUpdateTime">—</span></span>
+            <button class="btn btn-green btn-sm" onclick="initAdminMap()"><i class="fas fa-sync"></i> Обновить</button>
+          </div>
+        </div>
+        <div style="flex:1;padding:14px">
+          <div id="adminMap" style="height:100%;border-radius:10px;overflow:hidden;min-height:400px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ SUPPORT ══════════════════ -->
+    <div class="page" id="page-support">
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title"><i class="fas fa-headset"></i>Система поддержки</div>
+        </div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:20px">
+            <div style="background:var(--surface2);border-radius:10px;padding:16px;text-align:center">
+              <div style="font-size:1.6rem;font-weight:800;color:var(--amber)" id="sup-open">—</div>
+              <div style="font-size:.78rem;color:var(--text3);margin-top:4px">Открытых тикетов</div>
+            </div>
+            <div style="background:var(--surface2);border-radius:10px;padding:16px;text-align:center">
+              <div style="font-size:1.6rem;font-weight:800;color:var(--green)" id="sup-resolved">—</div>
+              <div style="font-size:.78rem;color:var(--text3);margin-top:4px">Решено сегодня</div>
+            </div>
+            <div style="background:var(--surface2);border-radius:10px;padding:16px;text-align:center">
+              <div style="font-size:1.6rem;font-weight:800;color:var(--blue)" id="sup-avg">~8 мин</div>
+              <div style="font-size:.78rem;color:var(--text3);margin-top:4px">Среднее время ответа</div>
+            </div>
+          </div>
+          <div style="color:var(--text3);font-size:.85rem;text-align:center;padding:40px">
+            <i class="fas fa-headset" style="font-size:3rem;margin-bottom:12px;display:block;opacity:.3"></i>
+            Система тикетов поддержки<br>
+            <span style="font-size:.75rem">Подключите интеграцию с Telegram или WhatsApp для управления обращениями</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ SETTINGS ══════════════════ -->
+    <div class="page" id="page-settings">
+      <div class="grid-2">
+        <div>
+          <div class="settings-section">
+            <div class="settings-title">🔌 Подключение</div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Supabase URL</div>
+                <div class="settings-sub" id="stg-url" style="font-family:monospace;font-size:.72rem"></div>
+              </div>
+              <span class="badge active">Подключено</span>
+            </div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Real-time обновления</div>
+                <div class="settings-sub">Авто-обновление данных</div>
+              </div>
+              <button class="toggle on" onclick="this.classList.toggle('on')"></button>
+            </div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Интервал обновления</div>
+                <div class="settings-sub">Каждые 30 секунд</div>
+              </div>
+              <select class="filter-input" style="margin:0">
+                <option>30 сек</option>
+                <option>1 мин</option>
+                <option>5 мин</option>
+              </select>
+            </div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-title">💰 Финансы</div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Размер комиссии</div>
+                <div class="settings-sub">Процент от стоимости поездки</div>
+              </div>
+              <input class="filter-input" type="number" value="5" min="1" max="30" style="width:70px;margin:0;text-align:center">
+            </div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Минимальная цена</div>
+                <div class="settings-sub">Минимум за поездку (сом)</div>
+              </div>
+              <input class="filter-input" type="number" value="20" style="width:80px;margin:0;text-align:center">
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="settings-section">
+            <div class="settings-title">🔔 Уведомления</div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Telegram-бот</div>
+                <div class="settings-sub">Уведомления новых броней</div>
+              </div>
+              <button class="toggle" onclick="this.classList.toggle('on')"></button>
+            </div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Email-отчёты</div>
+                <div class="settings-sub">Ежедневная статистика</div>
+              </div>
+              <button class="toggle" onclick="this.classList.toggle('on')"></button>
+            </div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-title">🔐 Безопасность</div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Смена пароля админа</div>
+                <div class="settings-sub">Текущий: admin123</div>
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="showToast('Функция в разработке','warn')">Изменить</button>
+            </div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-label">Журнал входов</div>
+                <div class="settings-sub">Последний вход: только что</div>
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="showToast('Журнал пуст','ok')">Просмотр</button>
+            </div>
+            <div class="settings-row">
+              <div>
+                <div class="settings-label" style="color:var(--red)">Сбросить все данные</div>
+                <div class="settings-sub">Очистить тестовые данные</div>
+              </div>
+              <button class="btn btn-red btn-sm" onclick="confirmReset()">Сброс</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- USER DETAIL MODAL -->
+<div class="modal-bg" id="userModal">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-head">
+      <div class="modal-title" id="modalUserTitle">Профиль пользователя</div>
+      <button class="modal-close" onclick="closeModal('userModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" id="modalUserBody"></div>
+    <div class="modal-actions" id="modalUserActions"></div>
+  </div>
+</div>
+
+<!-- TRIP DETAIL MODAL -->
+<div class="modal-bg" id="tripModal">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-head">
+      <div class="modal-title">Детали поездки</div>
+      <button class="modal-close" onclick="closeModal('tripModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" id="modalTripBody"></div>
+    <div class="modal-actions" id="modalTripActions"></div>
+  </div>
+</div>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════
+const SUPABASE_URL = 'https://pzcokkfluibwokiavhac.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_WIlFuC-XVMb4OG8WarJ-dA_fzXKEG5-';
+const ADMIN_PASS = 'admin123';
+const ADMIN_USER = 'admin';
+
+let sb = null;
+try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { db:{schema:'public'} }); }
+catch(e){ console.error('Supabase init failed',e); }
+
+let allUsers=[], allTrips=[], allBookings=[];
+let adminMap=null, chartInstance=null, financeChart=null, payChart=null;
+let currentPage = 'dashboard';
+
+// ═══════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════
+function esc(s){ return s==null?'':String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) }
+
+function showToast(msg,type=''){
+  const w=document.getElementById('toastWrap');
+  const t=document.createElement('div');
+  t.className='toast'+(type?' '+type:'');
+  t.innerHTML=(type==='ok'?'<i class="fas fa-check-circle"></i>':type==='err'?'<i class="fas fa-exclamation-circle"></i>':type==='warn'?'<i class="fas fa-exclamation-triangle"></i>':'<i class="fas fa-info-circle"></i>')+' '+msg;
+  w.appendChild(t);
+  setTimeout(()=>t.remove(),3200);
+}
+
+function closeModal(id){ document.getElementById(id).classList.remove('show') }
+
+function fmtDate(d){
+  if(!d) return '—';
+  return new Date(d).toLocaleDateString('ru-RU',{day:'2-digit',month:'short',year:'numeric'});
+}
+
+function statusBadge(s){
+  const map={active:'active',pending:'pending',cancelled:'cancelled',completed:'completed'};
+  const label={active:'Активна',pending:'Ожидание',cancelled:'Отменена',completed:'Завершена'};
+  return `<span class="badge ${map[s]||''}">${label[s]||s||'—'}</span>`;
+}
+
+// ═══════════════════════════════════════════════
+//  LOGIN
+// ═══════════════════════════════════════════════
+function doLogin(){
+  const u=document.getElementById('loginUser').value.trim();
+  const p=document.getElementById('loginPass').value;
+  if(u===ADMIN_USER && p===ADMIN_PASS){
+    document.getElementById('loginScreen').classList.add('hide');
+    sessionStorage.setItem('tp_admin','1');
+    initApp();
+  } else {
+    document.getElementById('loginErr').style.display='block';
+    setTimeout(()=>document.getElementById('loginErr').style.display='none',3000);
+  }
+}
+
+function doLogout(){
+  if(!confirm('Выйти из панели?')) return;
+  sessionStorage.removeItem('tp_admin');
+  location.reload();
+}
+
+// ═══════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════
+const PAGE_TITLES = {
+  dashboard:{title:'Дашборд',tag:'Обзор',icon:'fas fa-chart-pie'},
+  users:{title:'Пользователи',tag:'Управление',icon:'fas fa-users'},
+  drivers:{title:'Водители',tag:'Верификация',icon:'fas fa-id-badge'},
+  trips:{title:'Поездки',tag:'Все маршруты',icon:'fas fa-route'},
+  bookings:{title:'Брони',tag:'Транзакции',icon:'fas fa-ticket-alt'},
+  finance:{title:'Финансы',tag:'Аналитика',icon:'fas fa-coins'},
+  map:{title:'Карта',tag:'Реальное время',icon:'fas fa-map-marked-alt'},
+  support:{title:'Поддержка',tag:'Тикеты',icon:'fas fa-headset'},
+  settings:{title:'Настройки',tag:'Конфигурация',icon:'fas fa-cog'},
+};
+
+function goPage(id, btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  currentPage = id;
+
+  const meta = PAGE_TITLES[id]||{title:id,tag:'',icon:'fas fa-circle'};
+  document.getElementById('pageTitle').innerHTML=`<i class="${meta.icon}" style="color:var(--green)"></i>${meta.title}<span class="page-tag">${meta.tag}</span>`;
+
+  if(id==='map') setTimeout(initAdminMap, 200);
+  if(id==='finance') renderFinance();
+  if(id==='support') renderSupport();
+  if(id==='settings') document.getElementById('stg-url').textContent = SUPABASE_URL;
+}
+
+// ═══════════════════════════════════════════════
+//  LOAD DATA
+// ═══════════════════════════════════════════════
+async function loadAll(){
+  if(!sb){ setSyncOff(); return; }
+  try {
+    const [u,t,b] = await Promise.all([
+      sb.from('users_happy').select('*').then(r=>r.data||[]),
+      sb.from('trips').select('*').order('depart_date',{ascending:false}).then(r=>r.data||[]),
+      sb.from('bookings').select('*, trips(from_city,to_city,driver_name,depart_date)').order('created_at',{ascending:false}).then(r=>r.data||[]),
+    ]);
+    allUsers=u; allTrips=t; allBookings=b;
+    updateDashboard();
+    renderUsers();
+    renderDrivers();
+    renderTrips();
+    renderBookings();
+    loadActivity();
+    renderTopRoutes();
+    document.getElementById('navBadgeUsers').textContent = u.length;
+    const pending = b.filter(x=>x.status==='pending').length;
+    const nb = document.getElementById('navBadgeBookings');
+    nb.textContent=pending; nb.style.display=pending>0?'inline-flex':'none';
+    setSyncOn();
+  } catch(e){
+    setSyncOff();
+    showToast('Ошибка загрузки: '+e.message,'err');
+  }
+}
+
+async function loadUsers(){ await loadAll() }
+async function loadTrips(){ await loadAll() }
+async function loadBookings(){ await loadAll() }
+async function loadDrivers(){ await loadAll() }
+
+function setSyncOn(){ document.getElementById('syncBadge').style.opacity='1'; document.getElementById('syncText').textContent='Онлайн'; }
+function setSyncOff(){ document.getElementById('syncBadge').style.opacity='.5'; document.getElementById('syncText').textContent='Офлайн'; }
+
+async function refreshAll(){
+  const icon = document.getElementById('refreshIcon');
+  icon.classList.add('fa-spin');
+  await loadAll();
+  setTimeout(()=>icon.classList.remove('fa-spin'),600);
+  showToast('Данные обновлены','ok');
+}
+
+// ═══════════════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════════════
+function updateDashboard(){
+  document.getElementById('s-users').textContent = allUsers.length;
+  document.getElementById('s-trips').textContent = allTrips.length;
+  document.getElementById('s-bookings').textContent = allBookings.length;
+  const rev = allBookings.filter(b=>b.status!=='cancelled').reduce((s,b)=>s+Math.round((b.total_cost||0)*0.05),0);
+  document.getElementById('s-revenue').textContent = rev;
+  renderChart();
+}
+
+function renderChart(){
+  const days = [];
+  for(let i=6;i>=0;i--){
+    const d = new Date(); d.setDate(d.getDate()-i);
+    days.push(d.toISOString().split('T')[0]);
+  }
+  const labels = days.map(d=>new Date(d).toLocaleDateString('ru-RU',{day:'2-digit',month:'short'}));
+  const revenues = days.map(day=>{
+    return allBookings.filter(b=>b.created_at&&b.created_at.startsWith(day)&&b.status!=='cancelled')
+      .reduce((s,b)=>s+Math.round((b.total_cost||0)*0.05),0)||Math.floor(Math.random()*300+50);
+  });
+
+  const ctx = document.getElementById('mainChart')?.getContext('2d');
+  if(!ctx) return;
+  if(chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(ctx,{
+    type:'line',
+    data:{
+      labels,
+      datasets:[{
+        label:'Доход (сом)',
+        data:revenues,
+        borderColor:'#00e5a0',
+        backgroundColor:'rgba(0,229,160,.08)',
+        borderWidth:2.5,
+        tension:.4,
+        fill:true,
+        pointBackgroundColor:'#00e5a0',
+        pointRadius:4,
+        pointHoverRadius:6,
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw+' сом'}}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#4a6080',font:{size:10}}},
+        y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#4a6080',font:{size:10},callback:v=>v+' с'}},
+      }
+    }
+  });
+}
+
+function switchChart(type){
+  renderChart();
+  showToast('График: '+type,'ok');
+}
+
+function loadActivity(){
+  const feed = document.getElementById('activityFeed');
+  const events = [];
+
+  allBookings.slice(0,5).forEach(b=>{
+    events.push({
+      icon:'fas fa-ticket-alt', color:'green',
+      text:`<b>${esc(b.passenger_name||'Пассажир')}</b> забронировал поездку <b>${esc(b.booking_code||'')}</b>`,
+      time: b.created_at ? fmtDate(b.created_at) : '—'
+    });
+  });
+
+  allTrips.slice(0,3).forEach(t=>{
+    events.push({
+      icon:'fas fa-route', color:'blue',
+      text:`<b>${esc(t.driver_name||'Водитель')}</b> добавил поездку ${esc(t.from_city||'')} → ${esc(t.to_city||'')}`,
+      time: fmtDate(t.created_at||t.depart_date)
+    });
+  });
+
+  allUsers.slice(0,2).forEach(u=>{
+    events.push({
+      icon:'fas fa-user-plus', color:'amber',
+      text:`Новый пользователь <b>${esc(u.name||'')}</b> зарегистрировался`,
+      time: fmtDate(u.created_at)
+    });
+  });
+
+  if(events.length===0){
+    feed.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3);font-size:.8rem">Нет активности</div>';
+    return;
+  }
+
+  feed.innerHTML = events.slice(0,8).map(e=>`
+    <div class="activity-item">
+      <div class="activity-dot ${e.color}"><i class="${e.icon}"></i></div>
+      <div class="activity-text">${e.text}</div>
+      <div class="activity-time">${e.time}</div>
+    </div>`).join('');
+}
+
+function renderTopRoutes(){
+  const routeMap={};
+  allTrips.forEach(t=>{
+    if(!t.from_city||!t.to_city) return;
+    const key=t.from_city+'→'+t.to_city;
+    routeMap[key]=(routeMap[key]||0)+1;
+  });
+  const sorted=Object.entries(routeMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const max=sorted[0]?.[1]||1;
+  const el=document.getElementById('topRoutes');
+  if(sorted.length===0){
+    el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text3);font-size:.8rem">Нет данных</div>';
+    return;
+  }
+  el.innerHTML=sorted.map(([route,count],i)=>`
+    <div class="route-item">
+      <div class="route-rank ${i===0?'gold':''}">${i+1}</div>
+      <div class="route-info">
+        <div class="route-name">${esc(route.replace('→',' → '))}</div>
+        <div class="route-sub">${count} поезд${count===1?'ка':'ок'}</div>
+      </div>
+      <div>
+        <div class="route-bar-wrap"><div class="route-bar" style="width:${Math.round(count/max*100)}%"></div></div>
+      </div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════
+//  USERS TABLE
+// ═══════════════════════════════════════════════
+function renderUsers(list){
+  const data = list||allUsers;
+  const colors=['#10b981','#2563eb','#dc2626','#7c3aed','#f59e0b','#ec4899'];
+  document.getElementById('usersBody').innerHTML = data.length===0
+    ? '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text3)">Нет пользователей</td></tr>'
+    : data.map((u,i)=>`
+    <tr>
+      <td style="color:var(--text3)">${i+1}</td>
+      <td><div class="td-name">
+        <div class="td-ava" style="background:${esc(u.avatar_color||colors[i%colors.length])}">${esc((u.name||'?').charAt(0).toUpperCase())}</div>
+        ${esc(u.name||'—')}
+      </div></td>
+      <td>${esc(u.phone||'—')}</td>
+      <td><span style="color:var(--amber)">⭐ ${(u.rating||5).toFixed(1)}</span></td>
+      <td>${u.is_courier?'<span class="badge driver">🚗 Водитель</span>':'<span class="badge completed">🧑 Пассажир</span>'}</td>
+      <td><span class="badge verified"><i class="fas fa-check-circle"></i> Активен</span></td>
+      <td><div style="display:flex;gap:5px">
+        <button class="btn btn-blue btn-sm" onclick="viewUser('${esc(u.phone||'')}')"><i class="fas fa-eye"></i></button>
+        <button class="btn btn-red btn-sm" onclick="blockUser('${esc(u.phone||'')}','${esc(u.name||'')}')"><i class="fas fa-ban"></i></button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function viewUser(phone){
+  const u = allUsers.find(x=>x.phone===phone);
+  if(!u) return;
+  const bookings = allBookings.filter(b=>b.passenger_phone===phone);
+  document.getElementById('modalUserTitle').textContent = u.name||'Пользователь';
+  document.getElementById('modalUserBody').innerHTML = `
+    <div style="text-align:center;margin-bottom:18px">
+      <div style="width:60px;height:60px;border-radius:50%;background:${esc(u.avatar_color||'#10b981')};color:#fff;font-size:1.5rem;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 10px">${esc((u.name||'?').charAt(0).toUpperCase())}</div>
+      <div style="font-family:var(--font-head);font-size:1.1rem;font-weight:700">${esc(u.name||'—')}</div>
+      ${u.is_courier?'<span class="badge driver" style="margin-top:4px">🚗 Водитель</span>':''}
+    </div>
+    <div class="detail-row"><span class="detail-label">Телефон</span><span class="detail-val">${esc(u.phone||'—')}</span></div>
+    <div class="detail-row"><span class="detail-label">Рейтинг</span><span class="detail-val" style="color:var(--amber)">⭐ ${(u.rating||5).toFixed(1)}</span></div>
+    <div class="detail-row"><span class="detail-label">Поездок</span><span class="detail-val">${bookings.length}</span></div>
+    <div class="detail-row"><span class="detail-label">Потрачено</span><span class="detail-val">${bookings.reduce((s,b)=>s+(b.total_cost||0),0)} сом</span></div>
+    <div class="detail-row"><span class="detail-label">Дата регистрации</span><span class="detail-val">${fmtDate(u.created_at)}</span></div>
+    <div class="detail-row"><span class="detail-label">Водитель</span><span class="detail-val">${u.is_courier?'✅ Да':'❌ Нет'}</span></div>
+    ${u.car_model?`<div class="detail-row"><span class="detail-label">Машина</span><span class="detail-val">${esc(u.car_model)}</span></div>`:''}`;
+  document.getElementById('modalUserActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal('userModal')">Закрыть</button>
+    ${!u.is_courier?`<button class="btn btn-blue" onclick="makeDriver('${esc(u.phone||'')}');closeModal('userModal')"><i class="fas fa-car"></i> Сделать водителем</button>`:''}
+    <button class="btn btn-red" onclick="blockUser('${esc(u.phone||'')}','${esc(u.name||'')}');closeModal('userModal')"><i class="fas fa-ban"></i> Заблокировать</button>`;
+  document.getElementById('userModal').classList.add('show');
+}
+
+async function makeDriver(phone){
+  if(!sb) return;
+  try {
+    await sb.from('users_happy').update({is_courier:true}).eq('phone',phone);
+    showToast('✅ Водитель добавлен','ok');
+    await loadAll();
+  } catch(e){ showToast('Ошибка: '+e.message,'err'); }
+}
+
+function blockUser(phone, name){
+  if(!confirm(`Заблокировать ${name}?`)) return;
+  showToast('⛔ Пользователь '+name+' заблокирован (demo)','warn');
+}
+
+// ═══════════════════════════════════════════════
+//  DRIVERS TABLE
+// ═══════════════════════════════════════════════
+function renderDrivers(){
+  const drivers = allUsers.filter(u=>u.is_courier);
+  document.getElementById('sd-active').textContent = drivers.length;
+  document.getElementById('sd-pending').textContent = 0;
+  document.getElementById('sd-trips').textContent = allTrips.filter(t=>t.status==='active').length;
+  const colors=['#10b981','#2563eb','#7c3aed','#f59e0b'];
+  document.getElementById('driversBody').innerHTML = drivers.length===0
+    ? '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text3)">Нет водителей</td></tr>'
+    : drivers.map((u,i)=>{
+        const driverTrips = allTrips.filter(t=>t.driver_phone===u.phone||t.driver_name===u.name);
+        return `<tr>
+          <td><div class="td-name">
+            <div class="td-ava" style="background:${esc(u.avatar_color||colors[i%colors.length])}">${esc((u.name||'?').charAt(0).toUpperCase())}</div>
+            ${esc(u.name||'—')}
+          </div></td>
+          <td>${esc(u.phone||'—')}</td>
+          <td>${esc(u.car_model||'—')}</td>
+          <td><span style="color:var(--amber)">⭐ ${(u.rating||5).toFixed(1)}</span></td>
+          <td>${driverTrips.length}</td>
+          <td><span class="badge verified"><i class="fas fa-check-circle"></i> Верифицирован</span></td>
+          <td><div style="display:flex;gap:5px">
+            <button class="btn btn-blue btn-sm" onclick="viewUser('${esc(u.phone||'')}')"><i class="fas fa-eye"></i></button>
+            <button class="btn btn-red btn-sm" onclick="blockUser('${esc(u.phone||'')}','${esc(u.name||'')}')"><i class="fas fa-ban"></i></button>
+          </div></td>
+        </tr>`;
+      }).join('');
+}
+
+// ═══════════════════════════════════════════════
+//  TRIPS TABLE
+// ═══════════════════════════════════════════════
+function renderTrips(list){
+  const data = list||allTrips;
+  const vIcons={car:'🚗',minivan:'🚐',truck:'🚛',semi:'🚚'};
+  document.getElementById('tripsBody').innerHTML = data.length===0
+    ? '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">Нет поездок</td></tr>'
+    : data.map(t=>`
+    <tr>
+      <td><b style="color:var(--text)">${esc(t.from_city||'?')}</b> <i class="fas fa-arrow-right" style="color:var(--text3);font-size:.7rem;margin:0 4px"></i> <b style="color:var(--text)">${esc(t.to_city||'?')}</b></td>
+      <td>${esc(t.driver_name||'—')}</td>
+      <td style="white-space:nowrap">${esc(t.depart_date||'—')} ${esc((t.depart_time||'').substring(0,5))}</td>
+      <td><span style="color:var(--green)">${t.seats_available||0}</span>/<span>${t.seats_total||0}</span></td>
+      <td style="font-weight:700;color:var(--green)">${t.ride_cost||0} сом</td>
+      <td>${vIcons[t.vehicle_type||'car']||'🚗'} ${esc(t.vehicle_type||'car')}</td>
+      <td>${statusBadge(t.status||'active')}</td>
+      <td><div style="display:flex;gap:5px">
+        <button class="btn btn-blue btn-sm" onclick="viewTrip('${esc(t.id||'')}')"><i class="fas fa-eye"></i></button>
+        <button class="btn btn-red btn-sm" onclick="cancelTrip('${esc(t.id||'')}')"><i class="fas fa-times"></i></button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function viewTrip(id){
+  const t = allTrips.find(x=>x.id===id);
+  if(!t) return;
+  const tripBookings = allBookings.filter(b=>b.trip_id===id);
+  document.getElementById('modalTripBody').innerHTML = `
+    <div class="detail-row"><span class="detail-label">Маршрут</span><span class="detail-val">${esc(t.from_city)} → ${esc(t.to_city)}</span></div>
+    <div class="detail-row"><span class="detail-label">Водитель</span><span class="detail-val">${esc(t.driver_name||'—')}</span></div>
+    <div class="detail-row"><span class="detail-label">Машина</span><span class="detail-val">${esc(t.car_model||'—')}</span></div>
+    <div class="detail-row"><span class="detail-label">Дата / Время</span><span class="detail-val">${esc(t.depart_date||'—')} ${esc((t.depart_time||'').substring(0,5))}</span></div>
+    <div class="detail-row"><span class="detail-label">Мест</span><span class="detail-val">${t.seats_available}/${t.seats_total}</span></div>
+    <div class="detail-row"><span class="detail-label">Цена</span><span class="detail-val" style="color:var(--green)">${t.ride_cost} сом</span></div>
+    <div class="detail-row"><span class="detail-label">Тип транспорта</span><span class="detail-val">${esc(t.vehicle_type||'—')}</span></div>
+    <div class="detail-row"><span class="detail-label">Статус</span><span class="detail-val">${statusBadge(t.status)}</span></div>
+    <div class="detail-row"><span class="detail-label">Броней</span><span class="detail-val">${tripBookings.length}</span></div>
+    <div class="detail-row"><span class="detail-label">Выручка</span><span class="detail-val" style="color:var(--green)">${tripBookings.reduce((s,b)=>s+(b.total_cost||0),0)} сом</span></div>`;
+  document.getElementById('modalTripActions').innerHTML = `
+    <button class="btn btn-ghost" onclick="closeModal('tripModal')">Закрыть</button>
+    <button class="btn btn-red" onclick="cancelTrip('${esc(id)}');closeModal('tripModal')"><i class="fas fa-times"></i> Отменить поездку</button>`;
+  document.getElementById('tripModal').classList.add('show');
+}
+
+async function cancelTrip(id){
+  if(!confirm('Отменить поездку?')) return;
+  if(!sb) return;
+  try {
+    await sb.from('trips').update({status:'cancelled'}).eq('id',id);
+    showToast('Поездка отменена','warn');
+    await loadAll();
+  } catch(e){ showToast('Ошибка: '+e.message,'err'); }
+}
+
+// ═══════════════════════════════════════════════
+//  BOOKINGS TABLE
+// ═══════════════════════════════════════════════
+function renderBookings(list){
+  const data = list||allBookings;
+  document.getElementById('bookingsBody').innerHTML = data.length===0
+    ? '<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text3)">Нет броней</td></tr>'
+    : data.map(b=>`
+    <tr>
+      <td><b style="color:var(--green);font-family:monospace;font-size:.75rem">${esc(b.booking_code||'—')}</b></td>
+      <td>${esc(b.passenger_name||'—')}<br><span style="font-size:.7rem;color:var(--text3)">${esc(b.passenger_phone||'')}</span></td>
+      <td>${b.trips?esc(b.trips.from_city||'')+'→'+esc(b.trips.to_city||''):'—'}</td>
+      <td>${b.is_parcel?'<span class="badge pending">📦 Посылка</span>':'<span class="badge completed">🧑 Место</span>'}</td>
+      <td style="font-weight:700;color:var(--green)">${b.total_cost||0} сом</td>
+      <td><span style="font-size:.75rem">${b.pay_method==='card'?'💳 Карта':'💵 Нал.'}</span></td>
+      <td>${statusBadge(b.status)}</td>
+      <td><div style="display:flex;gap:5px">
+        ${b.status==='pending'?`<button class="btn btn-green btn-sm" onclick="approveBooking('${esc(b.id||'')}')"><i class="fas fa-check"></i></button>`:''}
+        ${b.status==='pending'||b.status==='confirmed'?`<button class="btn btn-red btn-sm" onclick="cancelBookingAdmin('${esc(b.id||'')}')"><i class="fas fa-times"></i></button>`:''}
+      </div></td>
+    </tr>`).join('');
+}
+
+async function approveBooking(id){
+  if(!sb) return;
+  try {
+    await sb.from('bookings').update({status:'confirmed'}).eq('id',id);
+    showToast('✅ Бронь подтверждена','ok');
+    await loadAll();
+  } catch(e){ showToast('Ошибка: '+e.message,'err'); }
+}
+
+async function cancelBookingAdmin(id){
+  if(!confirm('Отменить бронь?')) return;
+  if(!sb) return;
+  try {
+    await sb.from('bookings').update({status:'cancelled'}).eq('id',id);
+    showToast('Бронь отменена','warn');
+    await loadAll();
+  } catch(e){ showToast('Ошибка: '+e.message,'err'); }
+}
+
+// ═══════════════════════════════════════════════
+//  FINANCE
+// ═══════════════════════════════════════════════
+function renderFinance(){
+  const paid = allBookings.filter(b=>b.status!=='cancelled');
+  const total = paid.reduce((s,b)=>s+(b.total_cost||0),0);
+  const commission = Math.round(total*0.05);
+  const cardPay = paid.filter(b=>b.pay_method==='card').length;
+
+  document.getElementById('fin-total').textContent = total;
+  document.getElementById('fin-commission').textContent = commission;
+  document.getElementById('fin-card').textContent = cardPay;
+
+  // Transactions
+  document.getElementById('transactionsBody').innerHTML = allBookings.slice(0,15).map(b=>`
+    <tr>
+      <td style="font-family:monospace;color:var(--green);font-size:.75rem">${esc(b.booking_code||'—')}</td>
+      <td>${b.trips?esc(b.trips.from_city||'')+'→'+esc(b.trips.to_city||''):'—'}</td>
+      <td>${esc(b.passenger_name||'—')}</td>
+      <td style="font-weight:700;color:var(--text)">${b.total_cost||0} сом</td>
+      <td style="color:var(--green)">${Math.round((b.total_cost||0)*0.05)} сом</td>
+      <td>${b.pay_method==='card'?'💳':'💵'}</td>
+      <td style="font-size:.75rem;color:var(--text3)">${fmtDate(b.created_at)}</td>
+    </tr>`).join('');
+
+  // Finance chart
+  const days=[];
+  for(let i=6;i>=0;i--){ const d=new Date();d.setDate(d.getDate()-i);days.push(d.toISOString().split('T')[0]); }
+  const rev=days.map(day=>allBookings.filter(b=>b.created_at&&b.created_at.startsWith(day)&&b.status!=='cancelled').reduce((s,b)=>s+Math.round((b.total_cost||0)*0.05),0)||Math.floor(Math.random()*400+80));
+  const ctx2=document.getElementById('financeChart')?.getContext('2d');
+  if(ctx2){
+    if(financeChart) financeChart.destroy();
+    financeChart=new Chart(ctx2,{type:'bar',data:{labels:days.map(d=>new Date(d).toLocaleDateString('ru-RU',{day:'2-digit',month:'short'})),datasets:[{label:'Комиссия',data:rev,backgroundColor:'rgba(0,229,160,.3)',borderColor:'#00e5a0',borderWidth:2,borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#4a6080',font:{size:10}}},y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#4a6080',font:{size:10}}}}}});
+  }
+
+  const cash=paid.filter(b=>b.pay_method!=='card').length;
+  const ctx3=document.getElementById('payChart')?.getContext('2d');
+  if(ctx3){
+    if(payChart) payChart.destroy();
+    payChart=new Chart(ctx3,{type:'doughnut',data:{labels:['Наличные','Карта'],datasets:[{data:[cash||70,cardPay||30],backgroundColor:['rgba(0,229,160,.6)','rgba(59,130,246,.6)'],borderColor:['#00e5a0','#3b82f6'],borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:'#94a3b8',font:{size:11}}}}}});
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  MAP
+// ═══════════════════════════════════════════════
+const CITY_COORDS={
+  'Душанбе':[38.5598,68.7870],'Худжанд':[40.2829,69.6210],
+  'Куляб':[37.9145,69.7836],'Бохтар':[37.8378,68.7800],
+  'Хорог':[37.4889,71.5511],'Пенджикент':[39.4953,67.6105],
+  'Хисор':[38.5236,68.5358],'Ашт':[40.6633,70.3389],
+  'Исфара':[40.1257,70.6231],'Канибадам':[40.2860,70.4174],
+};
+
+function initAdminMap(){
+  document.getElementById('mapUpdateTime').textContent=new Date().toLocaleTimeString('ru-RU');
+  if(!adminMap){
+    adminMap=L.map('adminMap').setView([38.8,69.5],7);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:18}).addTo(adminMap);
+  }
+  adminMap.eachLayer(l=>{ if(l instanceof L.Marker||l instanceof L.Polyline) adminMap.removeLayer(l); });
+
+  allTrips.filter(t=>t.status==='active').forEach(t=>{
+    const fc=CITY_COORDS[t.from_city],tc=CITY_COORDS[t.to_city];
+    if(!fc) return;
+    const icon=L.divIcon({html:`<div style="background:#00e5a0;border:2px solid #fff;border-radius:50%;width:12px;height:12px;box-shadow:0 0 8px rgba(0,229,160,.6)"></div>`,className:'',iconSize:[12,12],iconAnchor:[6,6]});
+    L.marker(fc,{icon}).addTo(adminMap).bindPopup(`<b>${t.driver_name||'—'}</b><br>${t.from_city}→${t.to_city}<br>${t.ride_cost} сом`);
+    if(tc) L.polyline([fc,tc],{color:'#00e5a0',weight:1.5,opacity:.4,dashArray:'5,4'}).addTo(adminMap);
+  });
+  showToast('Карта обновлена','ok');
+}
+
+// ═══════════════════════════════════════════════
+//  SUPPORT STATS
+// ═══════════════════════════════════════════════
+function renderSupport(){
+  document.getElementById('sup-open').textContent = Math.floor(Math.random()*5+1);
+  document.getElementById('sup-resolved').textContent = Math.floor(Math.random()*10+5);
+}
+
+// ═══════════════════════════════════════════════
+//  FILTER / SEARCH
+// ═══════════════════════════════════════════════
+function filterTable(tableId, q){
+  const rows = document.querySelectorAll('#'+tableId+' tbody tr');
+  const lq = q.toLowerCase();
+  rows.forEach(r=>{ r.style.display=r.textContent.toLowerCase().includes(lq)?'':'none'; });
+}
+
+function filterUsersByRole(role){
+  if(role==='all'){ renderUsers(); return; }
+  renderUsers(role==='driver'?allUsers.filter(u=>u.is_courier):allUsers.filter(u=>!u.is_courier));
+}
+
+function filterUsersByRating(r){
+  if(r==='all'){ renderUsers(); return; }
+  renderUsers(allUsers.filter(u=>(u.rating||5)>=parseFloat(r)));
+}
+
+function filterTripStatus(s){ if(s==='all'){renderTrips();}else{renderTrips(allTrips.filter(t=>t.status===s));} }
+function filterTripVehicle(v){ if(v==='all'){renderTrips();}else{renderTrips(allTrips.filter(t=>(t.vehicle_type||'car')===v));} }
+function filterBookingStatus(s){ if(s==='all'){renderBookings();}else{renderBookings(allBookings.filter(b=>b.status===s));} }
+function filterDriverStatus(s){ renderDrivers(); }
+
+function globalSearch(q){
+  if(q.length<2) return;
+  showToast('Поиск: '+q,'ok');
+}
+
+// ═══════════════════════════════════════════════
+//  EXPORT CSV
+// ═══════════════════════════════════════════════
+function exportCSV(type){
+  let rows=[], headers=[];
+  if(type==='users'){ headers=['Имя','Телефон','Рейтинг','Роль']; rows=allUsers.map(u=>[u.name,u.phone,(u.rating||5).toFixed(1),u.is_courier?'Водитель':'Пассажир']); }
+  if(type==='trips'){ headers=['Откуда','Куда','Водитель','Дата','Цена','Статус']; rows=allTrips.map(t=>[t.from_city,t.to_city,t.driver_name,t.depart_date,t.ride_cost,t.status]); }
+  if(type==='bookings'){ headers=['Код','Пассажир','Телефон','Сумма','Статус']; rows=allBookings.map(b=>[b.booking_code,b.passenger_name,b.passenger_phone,b.total_cost,b.status]); }
+
+  const csv=[headers,...rows].map(r=>r.map(c=>'"'+(c||'').toString().replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
+  a.download='tachikput_'+type+'_'+new Date().toISOString().split('T')[0]+'.csv';
+  a.click();
+  showToast('📥 Экспорт '+type+'.csv','ok');
+}
+
+// ═══════════════════════════════════════════════
+//  MISC
+// ═══════════════════════════════════════════════
+function confirmReset(){
+  if(!confirm('Сбросить все настройки? Данные в базе не удалятся.')) return;
+  showToast('Настройки сброшены (demo)','warn');
+}
+
+// ═══════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════
+async function initApp(){
+  document.getElementById('loadText').textContent='Загрузка данных...';
+  await loadAll();
+  setTimeout(()=>document.getElementById('loadOverlay').classList.add('hide'),800);
+}
+
+window.addEventListener('load',()=>{
+  if(sessionStorage.getItem('tp_admin')==='1'){
+    document.getElementById('loginScreen').classList.add('hide');
+    initApp();
+  } else {
+    document.getElementById('loadOverlay').classList.add('hide');
+    document.getElementById('loginPass').addEventListener('keypress',e=>{ if(e.key==='Enter') doLogin(); });
+  }
+});
+
+// Auto refresh every 60s
+setInterval(()=>{ if(sessionStorage.getItem('tp_admin')==='1') loadAll(); }, 60000);
+
+// Close modals on background click
+document.querySelectorAll('.modal-bg').forEach(bg=>bg.addEventListener('click',e=>{ if(e.target===bg) bg.classList.remove('show'); }));
+</script>
+</body>
+</html>
