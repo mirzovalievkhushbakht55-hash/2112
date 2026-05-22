@@ -1997,7 +1997,6 @@ function requireAuth() {
 
 function logout() {
   if (!confirm('Выйти из аккаунта?')) return;
-  if (sb) { try { sb.removeAllChannels(); } catch(e) {} }
   me = null;
   myBookings = [];
   myDriverTrips = [];
@@ -2350,7 +2349,7 @@ async function handleGoogleCallback() {
       closeMod('modAuth');
       renderProf();
       await loadMyData();
-      setupRealtime();
+      setupRT();
     }
   } catch (err) { console.error('Google callback:', err); }
 }
@@ -2401,12 +2400,12 @@ function renderPopularRoutes() {
     var to = btn.getAttribute('data-to');
     var fi = document.getElementById('inpFrom'); if (fi) fi.value = from;
     var ti = document.getElementById('inpTo'); if (ti) ti.value = to;
-    var fc = CITIES.find(function(x) { return x.n === from; });
-    var tc = CITIES.find(function(x) { return x.n === to; });
-    if (fc) fromCoords = [fc.lat, fc.lng];
-    if (tc) toCoords = [tc.lat, tc.lng];
+    var fc = TAJIK_CITIES.find(function(x) { return x.name === from; });
+    var tc = TAJIK_CITIES.find(function(x) { return x.name === to; });
+    if (fc) coordFrom = [fc.lat, fc.lng];
+    if (tc) coordTo = [tc.lat, tc.lng];
     var wb = document.getElementById('welcomeBanner'); if (wb) wb.style.display = 'none';
-    searchRides();
+    searchForRides();
   });
 }
 
@@ -2870,9 +2869,9 @@ function initFaq() {
     var q = (item[lang] && item[lang].q) || item.ru.q;
     var a = (item[lang] && item[lang].a) || item.ru.a;
     html += '<div style="border-bottom:1px solid var(--br)">'
-      + '<div style="padding:12px 0;font-weight:700;font-size:13px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px" onclick="toggleFaqItem(this)">'
-      + '<span>' + esc(q) + '</span><span style="color:var(--su);flex-shrink:0">+</span></div>'
-      + '<div style="display:none;padding:0 0 11px;font-size:13px;color:var(--mu);line-height:1.7">' + esc(a) + '</div>'
+      + '<div style="padding:12px 0;font-weight:700;font-size:13px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px" onclick="togFaq(this)">'
+      + '<span>' + escapeHtml(q) + '</span><span style="color:var(--su);flex-shrink:0">+</span></div>'
+      + '<div style="display:none;padding:0 0 11px;font-size:13px;color:var(--mu);line-height:1.7">' + escapeHtml(a) + '</div>'
       + '</div>';
   });
   var el = document.getElementById('faqList');
