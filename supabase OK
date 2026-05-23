@@ -2341,7 +2341,7 @@ async function handleGoogleCallback() {
       me = user;
       localStorage.setItem('tp_user', JSON.stringify(me));
       closeMod('modAuth');
-      renderProf();
+      renderProfile();
       await loadMyData();
       setupRealtime();
     }
