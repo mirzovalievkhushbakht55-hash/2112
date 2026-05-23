@@ -1551,10 +1551,27 @@ async function renderTickets() {
     if (reopenBtn) reopenBtn.addEventListener('click', function() { reopenTicketDb(tid); });
     if (cancelBtn) cancelBtn.addEventListener('click', function() { toggleReply(safeId); });
     if (sendBtn)   sendBtn.addEventListener('click',   function() { sendReplyDb(tid, safeId); });
-    html += div.outerHTML;
+   html += div.outerHTML;
   });
   var el = document.getElementById('ticketsList');
-  if (el) el.innerHTML = html || '<div class="empty-state"><i class="fas fa-headset"></i><p>Нет тикетов</p></div>';
+  if (el) {
+    el.innerHTML = html || '<div class="empty-state"><i class="fas fa-headset"></i><p>Нет тикетов</p></div>';
+    // Переподключаем события после innerHTML
+    tickets.forEach(function(t) {
+      var tid = String(t.id || '');
+      var safeId = tid.replace(/[^a-zA-Z0-9]/g, '');
+      var replyBtn  = document.getElementById('reply-btn-'  + safeId);
+      var closeBtn  = document.getElementById('close-btn-'  + safeId);
+      var reopenBtn = document.getElementById('reopen-btn-' + safeId);
+      var cancelBtn = document.getElementById('cancel-reply-btn-' + safeId);
+      var sendBtn   = document.getElementById('send-reply-btn-'   + safeId);
+      if (replyBtn)  replyBtn.onclick  = function() { toggleReply(safeId); };
+      if (closeBtn)  closeBtn.onclick  = function() { closeTicketDb(tid); };
+      if (reopenBtn) reopenBtn.onclick = function() { reopenTicketDb(tid); };
+      if (cancelBtn) cancelBtn.onclick = function() { toggleReply(safeId); };
+      if (sendBtn)   sendBtn.onclick   = function() { sendReplyDb(tid, safeId); };
+    });
+  }
 }
 
 async function closeTicketDb(id) {
