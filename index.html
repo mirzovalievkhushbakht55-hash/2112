@@ -879,7 +879,7 @@ function setLanguage(lang) {
   if (titleEl) titleEl.innerHTML = '<i class="fas fa-route"></i>' + t('appName');
   // Re-render profile
   renderProfile();
-  showtoast(t(lang), 'success');
+toast(t(lang), 'success');
 }
 
 function showLanguagePicker() {
