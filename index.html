@@ -4847,8 +4847,6 @@ async function submitCourier() {
   } catch(e) { toast('Ошибка: ' + e.message, 'e'); }
   finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i>Отправить заявку'; } }
 }
-</script>
-
 <!-- SUPPORT MODAL -->
 <div class="mb" id="modSupport">
   <div class="md" onclick="event.stopPropagation()">
