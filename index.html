@@ -3291,7 +3291,8 @@ async function handleGoogleCallback() {
     if (!user && gEmail) {
       var byEmail = await sb.from('users_happy').select('*').eq('email', gEmail).maybeSingle();
       if (byEmail.data) {
-        await sb.from('users_happy').update({supabase_uid: gUser.id, avatar_url: avatarUrl}).eq('email', gEmail).catch(function(){});
+        try { await sb.from('users_happy').update({supabase_uid: gUser.id, avatar_url: avatarUrl}).eq('email', gEmail);
+      } catch(e2) {}
         user = byEmail.data;
         user.supabase_uid = gUser.id;
       }
