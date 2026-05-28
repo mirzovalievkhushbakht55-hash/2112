@@ -1,0 +1,340 @@
+// ЕДИНОЕ СОСТОЯНИЕ ПРИЛОЖЕНИЯ
+// Вместо 30 глобальных переменных
+
+export class AppState {
+  constructor() {
+    // ========== ПОЛЬЗОВАТЕЛЬ ==========
+    this.user = null;
+    this.isLoggedIn = false;
+
+    // ========== ПОЕЗДКИ ==========
+    this.trips = [];
+    this.selectedTrip = null;
+    this.searchQuery = { from: '', to: '' };
+
+    // ========== БРОНИ ПАССАЖИРА ==========
+    this.myBookings = [];
+
+    // ========== ПОЕЗДКИ ВОДИТЕЛЯ ==========
+    this.myDriverTrips = [];
+
+    // ========== ЧАТ ==========
+    this.activeChat = null;
+    this.chatMessages = [];
+
+    // ========== UI СОСТОЯНИЕ ==========
+    this.currentScreen = 'home';
+    this.isLoading = false;
+    this.error = null;
+    this.notification = null;
+
+    // ========== ФИЛЬТРЫ ==========
+    this.filterVehicle = '';
+    this.filterPriceMin = 0;
+    this.filterPriceMax = 999999;
+    this.filterRating = 0;
+    this.filterSeats = 0;
+    this.filterDate = null;
+
+    // ========== ЯЗЫКИ И ТЕМЫ ==========
+    this.language = localStorage.getItem('language') || 'ru';
+    this.isDarkMode = localStorage.getItem('darkMode') === '1';
+
+    // ========== НАБЛЮДАТЕЛИ ==========
+    this.observers = [];
+  }
+
+  // ====================================
+  // ПОЛЬЗОВАТЕЛЬ
+  // ====================================
+
+  setUser(user) {
+    this.user = user;
+    this.isLoggedIn = !!user;
+    this.notifyObservers();
+  }
+
+  getUser() {
+    return this.user;
+  }
+
+  logout() {
+    this.user = null;
+    this.isLoggedIn = false;
+    this.myBookings = [];
+    this.myDriverTrips = [];
+    this.notifyObservers();
+  }
+
+  isUserLoggedIn() {
+    return this.isLoggedIn;
+  }
+
+  // ====================================
+  // ПОЕЗДКИ
+  // ====================================
+
+  setTrips(trips) {
+    this.trips = trips;
+    this.notifyObservers();
+  }
+
+  getTrips() {
+    return this.trips;
+  }
+
+  addTrip(trip) {
+    this.trips.unshift(trip);
+    this.notifyObservers();
+  }
+
+  getTripById(id) {
+    return this.trips.find(t => t.id === id);
+  }
+
+  updateTrip(id, updates) {
+    const index = this.trips.findIndex(t => t.id === id);
+    if (index !== -1) {
+      this.trips[index] = { ...this.trips[index], ...updates };
+      this.notifyObservers();
+    }
+  }
+
+  setSelectedTrip(trip) {
+    this.selectedTrip = trip;
+    this.notifyObservers();
+  }
+
+  // ====================================
+  // ПОИСК
+  // ====================================
+
+  setSearchQuery(query) {
+    this.searchQuery = query;
+    this.notifyObservers();
+  }
+
+  getSearchQuery() {
+    return this.searchQuery;
+  }
+
+  // ====================================
+  // БРОНИ ПАССАЖИРА
+  // ====================================
+
+  setMyBookings(bookings) {
+    this.myBookings = bookings;
+    this.notifyObservers();
+  }
+
+  getMyBookings() {
+    return this.myBookings;
+  }
+
+  addBooking(booking) {
+    this.myBookings.push(booking);
+    this.notifyObservers();
+  }
+
+  getActiveBookings() {
+    return this.myBookings.filter(
+      b => b.status === 'pending' || b.status === 'confirmed'
+    );
+  }
+
+  updateBooking(id, updates) {
+    const index = this.myBookings.findIndex(b => b.id === id);
+    if (index !== -1) {
+      this.myBookings[index] = { ...this.myBookings[index], ...updates };
+      this.notifyObservers();
+    }
+  }
+
+  // ====================================
+  // ПОЕЗДКИ ВОДИТЕЛЯ
+  // ====================================
+
+  setMyDriverTrips(trips) {
+    this.myDriverTrips = trips;
+    this.notifyObservers();
+  }
+
+  getMyDriverTrips() {
+    return this.myDriverTrips;
+  }
+
+  addDriverTrip(trip) {
+    this.myDriverTrips.push(trip);
+    this.notifyObservers();
+  }
+
+  // ====================================
+  // ЧАТ
+  // ====================================
+
+  setActiveChat(tripId) {
+    this.activeChat = tripId;
+    this.chatMessages = [];
+    this.notifyObservers();
+  }
+
+  getActiveChat() {
+    return this.activeChat;
+  }
+
+  addChatMessage(message) {
+    this.chatMessages.push(message);
+    this.notifyObservers();
+  }
+
+  setChatMessages(messages) {
+    this.chatMessages = messages;
+    this.notifyObservers();
+  }
+
+  closeChat() {
+    this.activeChat = null;
+    this.chatMessages = [];
+    this.notifyObservers();
+  }
+
+  // ====================================
+  // ЭКРАНЫ
+  // ====================================
+
+  setCurrentScreen(screenName) {
+    this.currentScreen = screenName;
+    this.notifyObservers();
+  }
+
+  getCurrentScreen() {
+    return this.currentScreen;
+  }
+
+  // ====================================
+  // ЗАГРУЗКА И ОШИБКИ
+  // ====================================
+
+  setLoading(isLoading) {
+    this.isLoading = isLoading;
+    this.notifyObservers();
+  }
+
+  setError(error) {
+    this.error = error;
+    this.notifyObservers();
+  }
+
+  clearError() {
+    this.error = null;
+    this.notifyObservers();
+  }
+
+  // ====================================
+  // УВЕДОМЛЕНИЯ
+  // ====================================
+
+  setNotification(notification) {
+    this.notification = notification;
+    this.notifyObservers();
+  }
+
+  clearNotification() {
+    this.notification = null;
+    this.notifyObservers();
+  }
+
+  // ====================================
+  // ФИЛЬТРЫ
+  // ====================================
+
+  setFilterVehicle(type) {
+    this.filterVehicle = type;
+    this.notifyObservers();
+  }
+
+  setFilterPrice(min, max) {
+    this.filterPriceMin = min;
+    this.filterPriceMax = max;
+    this.notifyObservers();
+  }
+
+  setFilterRating(rating) {
+    this.filterRating = rating;
+    this.notifyObservers();
+  }
+
+  clearFilters() {
+    this.filterVehicle = '';
+    this.filterPriceMin = 0;
+    this.filterPriceMax = 999999;
+    this.filterRating = 0;
+    this.filterSeats = 0;
+    this.filterDate = null;
+    this.notifyObservers();
+  }
+
+  // ====================================
+  // ЯЗЫКИ И ТЕМЫ
+  // ====================================
+
+  setLanguage(lang) {
+    this.language = lang;
+    localStorage.setItem('language', lang);
+    this.notifyObservers();
+  }
+
+  getLanguage() {
+    return this.language;
+  }
+
+  setDarkMode(isDark) {
+    this.isDarkMode = isDark;
+    localStorage.setItem('darkMode', isDark ? '1' : '0');
+    this.notifyObservers();
+  }
+
+  getDarkMode() {
+    return this.isDarkMode;
+  }
+
+  // ====================================
+  // НАБЛЮДАТЕЛИ (Observer Pattern)
+  // ====================================
+
+  subscribe(observer) {
+    this.observers.push(observer);
+
+    // Возвращаем функцию для отписки
+    return () => {
+      this.observers = this.observers.filter(o => o !== observer);
+    };
+  }
+
+  notifyObservers() {
+    this.observers.forEach(observer => {
+      try {
+        observer(this);
+      } catch (error) {
+        console.error('Error in observer:', error);
+      }
+    });
+  }
+
+  // ====================================
+  // ОТЛАДКА
+  // ====================================
+
+  debugState() {
+    console.table({
+      'Пользователь': this.user?.name || 'Не авторизован',
+      'Поездок': this.trips.length,
+      'Мои брони': this.myBookings.length,
+      'Текущий экран': this.currentScreen,
+      'Язык': this.language,
+      'Темная тема': this.isDarkMode
+    });
+  }
+}
+
+export default AppState;

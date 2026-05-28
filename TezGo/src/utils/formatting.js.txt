@@ -1,0 +1,123 @@
+// ФОРМАТИРОВАНИЕ ДАННЫХ
+
+export class Formatting {
+  // Форматирование даты
+  static formatDate(dateString) {
+    if (!dateString) return '';
+
+    const date = new Date(dateString);
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    date.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    tomorrow.setHours(0, 0, 0, 0);
+
+    if (date.getTime() === today.getTime()) return '📅 Сегодня';
+    if (date.getTime() === tomorrow.getTime()) return '📅 Завтра';
+
+    return date.toLocaleDateString('ru-RU', {
+      day: 'numeric',
+      month: 'short'
+    });
+  }
+
+  // Форматирование времени
+  static formatTime(timeString) {
+    if (!timeString) return '';
+    return timeString.substring(0, 5);
+  }
+
+  // Форматирование цены
+  static formatPrice(price) {
+    return `${price.toLocaleString('ru-RU')} сом`;
+  }
+
+  // Форматирование расстояния
+  static formatDistance(km) {
+    if (km < 1) return `${Math.round(km * 1000)} м`;
+    return `${Math.round(km)} км`;
+  }
+
+  // Форматирование времени в пути
+  static formatDuration(seconds) {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+
+    if (hours > 0) {
+      return `${hours}ч ${minutes}м`;
+    }
+    return `${minutes}м`;
+  }
+
+  // Форматирование номера телефона
+  static formatPhone(phone) {
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length === 12) {
+      return `+${cleaned.slice(0, 3)} ${cleaned.slice(3, 5)} ${cleaned.slice(5, 8)} ${cleaned.slice(8)}`;
+    }
+    return phone;
+  }
+
+  // Форматирование имени
+  static formatName(name) {
+    return name
+      .trim()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  }
+
+  // Первая буква имени
+  static getInitial(name) {
+    return (name || '?').charAt(0).toUpperCase();
+  }
+
+  // Форматирование рейтинга
+  static formatRating(rating) {
+    if (!rating) return '⭐ —';
+    return `⭐ ${rating.toFixed(1)}`;
+  }
+
+  // Форматирование статуса брони
+  static formatBookingStatus(status) {
+    const statuses = {
+      pending: '⏳ Ожидание',
+      confirmed: '✅ Подтверждено',
+      completed: '✔ Завершено',
+      cancelled: '✖ Отменено'
+    };
+    return statuses[status] || status;
+  }
+
+  // Форматирование статуса поездки
+  static formatTripStatus(status) {
+    const statuses = {
+      active: '🚗 Активна',
+      completed: '✅ Завершена',
+      cancelled: '❌ Отменена'
+    };
+    return statuses[status] || status;
+  }
+
+  // Сокращение текста
+  static truncate(text, length = 50) {
+    if (text.length <= length) return text;
+    return text.substring(0, length) + '...';
+  }
+
+  // HTML Escape
+  static escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // Генерация случайного кода брони
+  static generateBookingCode() {
+    return 'TCH-' + Math.random().toString().slice(2, 7).toUpperCase();
+  }
+}
+
+export default Formatting;
